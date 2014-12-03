@@ -19,7 +19,7 @@ import android.util.Log;
 
 public class SMAPPoster {
 	private final static String TAG = BluetoothLeService.class.getSimpleName();
-	private static LinkedBlockingQueue<ITUMeasurement> measurements = new LinkedBlockingQueue<ITUMeasurement>();
+	private static LinkedBlockingQueue<ITUMeasurement> measurements = new LinkedBlockingQueue<ITUMeasurement>(10000);
 	private static final Map<Integer, String> ids = new HashMap<Integer, String>();
 	private static final Map<Integer, String> paths = new HashMap<Integer, String>();
 	private static ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -43,7 +43,7 @@ public class SMAPPoster {
 	private static void processIfEnoughMeasurements() {
 		int size = measurements.size();
 		Log.v(TAG, "Measurements in list: " + size);
-		if (size >= 100) {
+		if (size >= 60) {
 			executor.submit(new Runnable() {
 				@Override
 				public void run() {
@@ -59,12 +59,15 @@ public class SMAPPoster {
 						list.add(m);
 					}
 					allItems = null;
-
+					ArrayList<ITUMeasurement> list = null;
 					for (Integer key : idToMeasurementMap.keySet()) {
 						try {
+							list = idToMeasurementMap.get(key);
+							if(list == null || list.size() < 1){
+								continue;
+							}
 							HttpPost httpost = new HttpPost(url);
 							JSONArray readings = new JSONArray();
-							ArrayList<ITUMeasurement> list = idToMeasurementMap.get(key);
 							for (ITUMeasurement m : list) {
 								if (m.value > 160000) continue;
 								JSONArray reading = new JSONArray();
@@ -94,6 +97,13 @@ public class SMAPPoster {
 						catch (Exception e) {
 							Log.e(TAG, "Error post value to server due to exception");
 							e.printStackTrace();
+							//Put the elements back to the list for retry
+							try {
+								measurements. addAll(list);
+							}
+							catch (Exception e1) {
+								Log.e(TAG, "Error returning values for retry",e1);
+							}
 						}
 					}
 				}
