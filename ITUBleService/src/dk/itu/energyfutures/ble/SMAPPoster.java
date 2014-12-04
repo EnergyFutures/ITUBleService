@@ -21,7 +21,6 @@ public class SMAPPoster {
 	private final static String TAG = BluetoothLeService.class.getSimpleName();
 	private static LinkedBlockingQueue<ITUMeasurement> measurements = new LinkedBlockingQueue<ITUMeasurement>(10000);
 	private static final Map<Integer, String> ids = new HashMap<Integer, String>();
-	private static final Map<Integer, String> paths = new HashMap<Integer, String>();
 	private static ExecutorService executor = Executors.newSingleThreadExecutor();
 	private static final String url = "http://130.226.142.195/backend/add/tp0sgjVoKNQZmk6HzgAjGfGMqlGcQQ68C45J";
 	static {
@@ -29,10 +28,6 @@ public class SMAPPoster {
 		ids.put(2, "43571867-b4fa-5b44-afcf-011486b2f288");
 		ids.put(3, "43571867-b4fa-5b44-afcf-011486b2f299");
 		ids.put(4, "c9db1ba0-7aed-11e4-b116-123b93f75cba");
-		paths.put(1, "/ITU/4D21/BluetoothNode1/Humidity");
-		paths.put(2, "/ITU/4D21/BluetoothNode1/Temperature");
-		paths.put(3, "/ITU/4D21/BluetoothNode1/Sound");
-		paths.put(4, "/ITU/4D21/BluetoothNode2/Temperature");
 	}
 
 	public static void submitMeasurement(int id, double value) {
@@ -81,7 +76,7 @@ public class SMAPPoster {
 							int id = list.get(0).id;
 							measurement.put("uuid", ids.get(id));
 							JSONObject holder = new JSONObject();
-							holder.put(paths.get(id), measurement);
+							holder.put("", measurement);
 							StringEntity se = new StringEntity(holder.toString());
 							Log.v(TAG, holder.toString());
 							httpost.setEntity(se);
