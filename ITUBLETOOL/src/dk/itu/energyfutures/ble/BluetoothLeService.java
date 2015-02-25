@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import android.app.Service;
@@ -18,14 +19,21 @@ import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothProfile;
 import android.content.Context;
 import android.content.Intent;
+import android.drm.DrmStore.RightsStatus;
+import android.os.Binder;
 import android.os.IBinder;
 import android.util.Log;
 import android.widget.Toast;
 import dk.itu.energyfutures.ble.helpers.BluetoothHelper;
 import dk.itu.energyfutures.ble.helpers.GattAttributes;
+import dk.itu.energyfutures.ble.helpers.GzipAndJsonParser;
+import dk.itu.energyfutures.ble.helpers.ITUConstants;
+import dk.itu.energyfutures.ble.helpers.ITUConstants.ITU_MOTE_TYPE;
 
-public class BluetoothLeService extends Service {
+public class BluetoothLeService extends Service implements NewPacketBroadcaster{
 	private final static String TAG = BluetoothLeService.class.getSimpleName();
+
+	protected static final String NEW_PACKET = "NEW_ADV_PACKET";
 
 	private static BluetoothManager btManager;
 	private static BluetoothAdapter btAdapter;
@@ -33,12 +41,14 @@ public class BluetoothLeService extends Service {
 	private static ExecutorService gattExecutor;
 	private List<BluetoothGatt> gattDevices = new ArrayList<BluetoothGatt>();
 	private static AtomicBoolean isDoingStuff = new AtomicBoolean(false);
+	private List<Byte> json = new ArrayList<Byte>();
 
-	public final static String ACTION_GATT_CONNECTED = "com.example.bluetooth.le.ACTION_GATT_CONNECTED";
-	public final static String ACTION_GATT_DISCONNECTED = "com.example.bluetooth.le.ACTION_GATT_DISCONNECTED";
-	public final static String ACTION_GATT_SERVICES_DISCOVERED = "com.example.bluetooth.le.ACTION_GATT_SERVICES_DISCOVERED";
-	public final static String ACTION_DATA_AVAILABLE = "com.example.bluetooth.le.ACTION_DATA_AVAILABLE";
-	public final static String EXTRA_DATA = "com.example.bluetooth.le.EXTRA_DATA";
+	// public final static String ACTION_GATT_CONNECTED = "com.example.bluetooth.le.ACTION_GATT_CONNECTED";
+	// public final static String ACTION_GATT_DISCONNECTED = "com.example.bluetooth.le.ACTION_GATT_DISCONNECTED";
+	// public final static String ACTION_GATT_SERVICES_DISCOVERED = "com.example.bluetooth.le.ACTION_GATT_SERVICES_DISCOVERED";
+	// public final static String ACTION_DATA_AVAILABLE = "com.example.bluetooth.le.ACTION_DATA_AVAILABLE";
+	// public final static String EXTRA_DATA = "com.example.bluetooth.le.EXTRA_DATA";
+	private boolean moteFound;
 
 	private final BluetoothGattCallback gattCallback = new BluetoothGattCallback() {
 		@Override
@@ -48,14 +58,16 @@ public class BluetoothLeService extends Service {
 				if (newState == BluetoothProfile.STATE_CONNECTED) {
 					Log.i(TAG, "Connected to GATT server: " + adr);
 					gattDevices.add(gatt);
-					gattExecutor.submit(new Runnable() {
-						@Override
-						public void run() {
-							waitForChange();
-							gatt.discoverServices();
-							isDoingStuff.set(true);
-						}
-					});
+					if(isRunnning){
+						gattExecutor.submit(new Runnable() {
+							@Override
+							public void run() {
+								waitForChange();
+								isDoingStuff.set(true);
+								gatt.discoverServices();								
+							}
+						});
+					}					
 				} else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
 					Log.i(TAG, "Disconnected from GATT server: " + adr);
 					gattDevices.remove(gatt);
@@ -71,25 +83,21 @@ public class BluetoothLeService extends Service {
 			String adr = gatt.getDevice().getAddress();
 			if (status == BluetoothGatt.GATT_SUCCESS) {
 				Log.v(TAG, "Done discovering: " + adr);
-				List<BluetoothGattService> services = gatt.getServices();
-				for (BluetoothGattService btService : services) {
-					final BluetoothGattCharacteristic configChar = btService.getCharacteristic(GattAttributes.BLE_UUID_ITU_MEASUREMENT_CONFIG_CHAR);
-					if (configChar != null) {
+				BluetoothGattService service = gatt.getService(ITUConstants.BLE_UUID_ITU_ACTUATOR_SERVICE);
+				if (service != null) {
+					final BluetoothGattCharacteristic jsonChar = service.getCharacteristic(ITUConstants.BLE_UUID_ITU_ACTUATOR_JSON_CHAR);
+					if (jsonChar != null && isRunnning) {
 						gattExecutor.submit(new Runnable() {
 							@Override
 							public void run() {
 								waitForChange();
-								configChar.setValue(new byte[] { 0x08 });
-								gatt.writeCharacteristic(configChar);
 								isDoingStuff.set(true);
+								gatt.readCharacteristic(jsonChar);						
 							}
 						});
 					}
-					BluetoothGattCharacteristic valueChar = btService.getCharacteristic(GattAttributes.BLE_UUID_ITU_MEASUREMENT_VALUE_CHAR);
-					if (valueChar != null) {
-						setCharacteristicNotification(gatt, valueChar);
-					}
 				}
+
 			} else {
 				Log.e(TAG, "onServicesDiscovered received: " + status + " for adr: " + adr);
 			}
@@ -97,18 +105,40 @@ public class BluetoothLeService extends Service {
 		}
 
 		@Override
-		public void onCharacteristicRead(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
+		public void onCharacteristicRead(final BluetoothGatt gatt, final BluetoothGattCharacteristic characteristic, int status) {
 			if (status == BluetoothGatt.GATT_SUCCESS) {
-				Log.e(TAG, "onCharacteristicRead received: " + status + " for adr: " + gatt.getDevice().getAddress());
+				byte[] bytes = characteristic.getValue();
+				for(byte b: bytes){
+					json.add(b);
+				}
+				if(bytes.length == 600 ){
+					if(isRunnning){
+						gattExecutor.submit(new Runnable() {
+							@Override
+							public void run() {
+								waitForChange();
+								isDoingStuff.set(true);
+								gatt.readCharacteristic(characteristic);						
+							}
+						});
+					}					
+				}else{
+					try {
+						String result = GzipAndJsonParser.unzipAndParseByteList(json);
+						json.clear();
+						Log.i(TAG,result);
+					}
+					catch (Exception e) {
+						e.printStackTrace();
+					}
+				}
 			}
 			isDoingStuff.set(false);
 		}
 
 		@Override
 		public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
-			// Log.v(TAG, "onCharacteristicChanged received for adr: " + gatt.getDevice().getAddress());
-			processITUMeasurementValue(characteristic);
-			// isDoingStuff.set(false);
+			
 		}
 
 		@Override
@@ -144,20 +174,6 @@ public class BluetoothLeService extends Service {
 		};
 	};
 
-	private void processITUMeasurementValue(BluetoothGattCharacteristic characteristic) {
-		Log.v(TAG, "Measurement received: " + BluetoothHelper.bytesToHex(characteristic.getValue()));
-		int offset = 1;
-		double tempValue = BluetoothHelper.getIEEEFloatValue(characteristic.getIntValue(BluetoothGattCharacteristic.FORMAT_UINT32, offset));
-		offset += 4;
-		int id = characteristic.getIntValue(BluetoothGattCharacteristic.FORMAT_UINT16, offset);
-		SMAPPoster.submitMeasurement(id, tempValue);
-	}
-
-	@Override
-	public IBinder onBind(Intent intent) {
-		return null;
-	}
-
 	private boolean initialize() {
 		if (btManager == null) {
 			btManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
@@ -179,9 +195,9 @@ public class BluetoothLeService extends Service {
 		return btAdapter.enable();
 	}
 
-	private void setCharacteristicNotification(final BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
+	/*private void setCharacteristicNotification(final BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
 		gatt.setCharacteristicNotification(characteristic, true);
-		final BluetoothGattDescriptor cccd = characteristic.getDescriptor(GattAttributes.CLIENT_CHARACTERISTIC_CONFIG);
+		final BluetoothGattDescriptor cccd = characteristic.getDescriptor(ITUConstants.CLIENT_CHARACTERISTIC_CONFIG);
 		if (cccd != null) {
 			gattExecutor.submit(new Runnable() {
 				@Override
@@ -193,22 +209,38 @@ public class BluetoothLeService extends Service {
 				}
 			});
 		}
-	}
+	}*/
 
 	// Device scan callback.
 	private BluetoothAdapter.LeScanCallback mLeScanCallback = new BluetoothAdapter.LeScanCallback() {
 		@Override
 		public void onLeScan(final BluetoothDevice device, final int rssi, final byte[] scanRecord) {
-			final String deviceName = device.getName();
-			if (deviceName != null && deviceName.length() > 0 && deviceName.contains("ITU")) {
-				gattExecutor.execute(new Runnable() {
-					@Override
-					public void run() {
-						waitForChange();
-						device.connectGatt(getApplicationContext(), true, gattCallback);
+			gattExecutor.execute(new Runnable() {
+
+				@Override
+				public void run() {
+					int[] result = BluetoothHelper.findIndexOfAdvertisementType(scanRecord, GattAttributes.SHORTENED_LOCAL_NAME);
+					if (result == null || result.length != 2) return;
+					final String deviceName = BluetoothHelper.decodeLocalName(scanRecord, result[0], result[1]);
+					result = BluetoothHelper.findIndexOfAdvertisementType(scanRecord, GattAttributes.MANUFACTURER_SPECIFIC_DATA);
+					if (result == null || result.length != 2) return;
+					boolean isITUMote = BluetoothHelper.decodeManufacturerID(scanRecord, result[0]);
+					if (deviceName != null && deviceName.length() > 0 && isITUMote) {
+						// We know that the first 2 bytes are for the manufacturer ID... so skip them
+						AdvertisementPacket packet = AdvertisementPacket.processITUAdvertisementValue(scanRecord, result[0] + 2, result[1] - 2, deviceName);
+						Log.i(TAG,"Type: " + packet.getSensorType() + " value: " + packet.getValue() + " buff_full: " + packet.isBufferFull());
+						if (packet.getMoteType() == ITU_MOTE_TYPE.BLE_UUID_ITU_MOTE_ACTUATOR_TYPE) {
+							waitForChange();
+							//device.connectGatt(getApplicationContext(), false, gattCallback);
+						}
+						for(NewPacketListner listner: listners){
+							listner.newPacketArrived(packet);
+						}
+						moteFound = true;
 					}
-				});
-			}
+				}
+			});
+
 		}
 	};
 
@@ -222,27 +254,34 @@ public class BluetoothLeService extends Service {
 	private void takeOff() {
 		if (!isRunnning) {
 			if (initialize()) {
-				// executorService = Executors.newFixedThreadPool(5);
+				// gattExecutor = Executors.newFixedThreadPool(5);
 				gattExecutor = Executors.newSingleThreadExecutor();
 				Thread scanner = new Thread(new Runnable() {
+
 					@Override
 					public void run() {
 						String myTag = "Ble scanner thread";
+						int count = 0;
 						while (true) {
 							try {
-								Log.v(myTag,"Starting scan");
+								Log.v(myTag, "Starting scan");
 								btAdapter.startLeScan(mLeScanCallback);
-								Log.v(myTag,"Sleeping for 4 min while scanning");
-								Thread.sleep(4*60*1000); //4 min
-								Log.v(myTag,"Awake from 4 min sleep");
-								Log.v(myTag,"Stopping scan");
+								Log.v(myTag, "Sleeping while scanning");
+								while (!moteFound) {
+									Thread.sleep(100);
+								}
+								Log.v(myTag, "mote found... we should reset scanning");
+								moteFound = false;
 								btAdapter.stopLeScan(mLeScanCallback);
-								Log.v(myTag,"Sleeping for 15 min doing nothing");
-								Thread.sleep(15*60*1000); //15 min
-								Log.v(myTag,"Awake from 15 min sleep... should reloop now");
+								if (count++ > 9000) { // around 15 min
+									count = 0;
+									btAdapter.disable();
+									Thread.sleep(5000); // 5 sec
+									btAdapter.enable();
+								}
 							}
 							catch (Exception e) {
-								Log.e(TAG, "Error with scan thread or it has been killed",e);
+								Log.e(TAG, "Error with scan thread or it has been killed", e);
 							}
 						}
 					}
@@ -253,7 +292,7 @@ public class BluetoothLeService extends Service {
 				Toast.makeText(getApplicationContext(), "BLE SERVICE STARTED :0)", Toast.LENGTH_LONG).show();
 			} else {
 				Log.e(TAG, "could not initiate BT");
-				Toast.makeText(getApplicationContext(), "COULD NO START BLE :0(", Toast.LENGTH_LONG).show();
+				Toast.makeText(getApplicationContext(), "COULD NOT START BLE :0(", Toast.LENGTH_LONG).show();
 			}
 		} else {
 			Toast.makeText(getApplicationContext(), "BLE SERVICE ALREADY RUNNING!", Toast.LENGTH_LONG).show();
@@ -263,25 +302,26 @@ public class BluetoothLeService extends Service {
 	@Override
 	public void onDestroy() {
 		super.onDestroy();
+		isRunnning = false;	
+		if (gattExecutor != null) {
+			gattExecutor.shutdown();
+		}
 		if (gattDevices.size() > 0) {
 			for (BluetoothGatt gatt : gattDevices) {
 				gatt.close();
 			}
 			gattDevices.clear();
-		}
-		isRunnning = false;
-		if (gattExecutor != null) {
-			gattExecutor.shutdown();
-		}
+		}		
 		Log.v(TAG, "onDestroyCommand");
+		Toast.makeText(getApplicationContext(), "BLE SERVICE STOOOOPED", Toast.LENGTH_LONG).show();
 	}
 
 	private void waitForChange() {
 		try {
 			int counter = 0;
 			while (isDoingStuff.get()) {
-				Thread.sleep(200);
-				counter += 200;
+				Thread.sleep(50);
+				counter += 50;
 				if (counter >= 45000) { // 45 sec
 					isDoingStuff.set(false);
 					break;
@@ -292,5 +332,33 @@ public class BluetoothLeService extends Service {
 			Log.e(TAG, "Error while sleeping in waitForChange");
 			e.printStackTrace();
 		}
+	}
+
+	// BINDER PART
+
+	private final IBinder mBinder = new LocalBinder();
+
+	private List<NewPacketListner> listners = new ArrayList<NewPacketListner>();
+
+	public class LocalBinder extends Binder {
+		BluetoothLeService getService() {
+			return BluetoothLeService.this;
+		}
+	}
+
+	@Override
+	public IBinder onBind(Intent intent) {
+		takeOff();
+		return mBinder;
+	}
+
+	@Override
+	public void registerListner(NewPacketListner listner) {
+		listners.add(listner);
+	}
+
+	@Override
+	public void removeListner(NewPacketListner listner) {
+		listners.remove(listner);
 	}
 }
