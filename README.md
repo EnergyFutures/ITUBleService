@@ -38,7 +38,10 @@ Service does the following:
 
 
 Batched post packages are used to minimize the conflicts between the WIFI and BT
+
 Thread pooling is used for worker tasks
+
+![](https://raw.githubusercontent.com/EnergyFutures/ITUBleService/master/seq_dia.png)
 
 
 
