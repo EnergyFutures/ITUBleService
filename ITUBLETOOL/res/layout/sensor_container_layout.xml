@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/sensor_container"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:columnCount="1" >
+
+    <ImageView
+        android:id="@+id/imageView"
+        android:layout_width="60dp"
+        android:layout_height="60dp"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentTop="true"
+        android:layout_gravity="top|left"
+        android:src="@drawable/divider" />
+
+    <TextView
+        android:id="@+id/ValueText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_toRightOf="@id/imageView"
+        android:text="23.5"
+        android:textAppearance="?android:attr/textAppearanceLarge"
+        android:textSize="25sp" />
+
+    <ImageView
+        android:id="@+id/multiple_values_imageview"
+        android:layout_width="20dp"
+        android:layout_height="20dp"
+        android:layout_alignParentLeft="true"
+        android:layout_below="@+id/imageView"
+        android:src="@drawable/multiple_sensors_icon" />
+
+    <TextView
+        android:id="@+id/timestamp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentLeft="false"
+        android:layout_alignParentTop="false"
+        android:layout_below="@id/imageView"
+        android:layout_marginLeft="15dp"
+        android:layout_toRightOf="@+id/multiple_values_imageview"
+        android:text="00:00:00"
+        android:textAppearance="?android:attr/textAppearanceMedium" />
+
+    <TextView
+        android:id="@+id/coordinateText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignBottom="@+id/imageView"
+        android:layout_below="@+id/ValueText"
+        android:layout_toRightOf="@id/imageView"
+        android:text="IN|FLOOR"
+        android:textAppearance="?android:attr/textAppearanceLarge"
+        android:textSize="20sp" />
+
+</RelativeLayout>

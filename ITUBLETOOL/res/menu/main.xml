@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:id="@+id/menu_refresh"
+    <item android:id="@+id/main_refresh"
           android:title="Refresh"
           android:orderInCategory="1"
           android:showAsAction="always|withText"/>
-    <item android:id="@+id/menu_exit"
+    <item android:id="@+id/main_exit"
           android:title="Exit"
           android:orderInCategory="2"
           android:showAsAction="ifRoom|withText"/>

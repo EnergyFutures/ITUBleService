@@ -7,13 +7,14 @@ public class GattAttributes {
 	private static HashMap<UUID, String> attributes = new HashMap<UUID, String>();
 	private static HashMap<Integer, String> appearance = new HashMap<Integer, String>();
 	private static HashMap<Integer, String> flags = new HashMap<Integer, String>();
-	public static final UUID BLE_UUID_DEVICE_INFORMATION_SERVICE = UUID.fromString("0000180a-3444-3231-3454-484557494E21");
+	public static final UUID BLE_UUID_DEVICE_INFORMATION_SERVICE = UUID.fromString("0000180a-0000-1000-8000-00805f9b34fb");
 	public static UUID MANUFACTOR_NAME = UUID.fromString("00002a29-0000-1000-8000-00805f9b34fb");
-	public static UUID CLIENT_CHARACTERISTIC_CONFIG = UUID.fromString("00002902-3444-3231-3454-484557494E21");
+	public static UUID BLE_UUID_CCCD_DESCRIPTOR = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb");
 	
 	public static final byte SHORTENED_LOCAL_NAME = 0x08;
 	public static final byte COMPLETE_LOCAL_NAME = 0x09;
 	public static final byte MANUFACTURER_SPECIFIC_DATA = (byte) 0xff;
+	public static final byte CONNECTION_FLAGS = 0x01;
 
 	static {
 		attributes.put(UUID.fromString("00001811-0000-1000-8000-00805f9b34fb"), "Alert Notification Service");
@@ -168,7 +169,7 @@ public class GattAttributes {
 		attributes.put(ITUConstants.BLE_UUID_ITU_MEASUREMENT_CONFIG_CHAR, "ITU BLE MEASUREMENT CONFIG");
 		attributes.put(ITUConstants.BLE_UUID_ITU_ACTUATOR_COMMAND_CHAR, "ITU BLE ACTUATOR COMMAND");
 		attributes.put(ITUConstants.BLE_UUID_ITU_ACTUATOR_JSON_CHAR, "ITU BLE ACTUATOR JSON");
-		attributes.put(CLIENT_CHARACTERISTIC_CONFIG, "CLIENT CHAR CONFIG");
+		attributes.put(BLE_UUID_CCCD_DESCRIPTOR, "CLIENT CHAR CONFIG");
 		attributes.put(MANUFACTOR_NAME, "Manufacturer Name String");
 
 		appearance.put(0, "Unknown");
