@@ -65,9 +65,6 @@ public class BluetoothLeService extends Service implements NewPacketBroadcaster,
 			String adr = gatt.getDevice().getAddress();
 			if (newState == BluetoothProfile.STATE_CONNECTED) {
 				Log.v(TAG, "Connected to GATT server: " + adr);
-				if (isRunnning.get()) {
-					gatt.discoverServices();
-				}
 			} else if (newState == BluetoothProfile.STATE_DISCONNECTING) {
 				Log.v(TAG, "Disconnecting to GATT server: " + adr);
 			} else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
@@ -82,10 +79,6 @@ public class BluetoothLeService extends Service implements NewPacketBroadcaster,
 			String adr = gatt.getDevice().getAddress();
 			if (status == BluetoothGatt.GATT_SUCCESS) {
 				Log.v(TAG, "Done discovering: " + adr);
-				synchronized (devices) {
-					devices.put(adr, gatt.getServices());
-				}
-				gatt.disconnect();
 			} else {
 				Log.e(TAG, "onServicesDiscovered received: " + status + " for adr: " + adr);
 			}
@@ -188,31 +181,14 @@ public class BluetoothLeService extends Service implements NewPacketBroadcaster,
 								String adr = device.getAddress();
 								Log.v(TAG, "Buffer state: " + packet.isBufferFull() + " adr: " + adr);
 								if (packet.isBufferFull()) {
-									synchronized (devices) {
-										if (devices.containsKey(adr)) {
-											List<BluetoothGattService> services = devices.get(adr);
-											if (services != null) {
-												synchronized (emptyBufferTasks) {
-													if (!emptyBufferTasks.contains(adr)) {
-														EmptyBufferTask task = new EmptyBufferTask();
-														task.setServices(services);
-														task.setDevice(packet.getDevice());
-														task.setContext(getApplicationContext());
-														emptyBufferTasks.add(adr);
-														task.registerDoneEmptyingBufferListner(BluetoothLeService.this);
-														gattExecutor.execute(task);
-													}
-												}
-											} else {
-												if (System.currentTimeMillis() - timeOfLastDiscoveryCheckMap.get(adr) > TIME_TO_RETRY_DISCOVERY) {
-													device.connectGatt(BluetoothLeService.this, false, gattCallback);
-													packet.setTimeOfLastDiscoveryCheck(System.currentTimeMillis());
-												}
-											}
-										} else {
-											devices.put(adr, null);
-											device.connectGatt(BluetoothLeService.this, false, gattCallback);
-											timeOfLastDiscoveryCheckMap.put(adr, System.currentTimeMillis());
+									synchronized (emptyBufferTasks) {
+										if (!emptyBufferTasks.contains(adr)) {
+											EmptyBufferTask task = new EmptyBufferTask();
+											task.setDevice(packet.getDevice());
+											task.setContext(getApplicationContext());
+											emptyBufferTasks.add(adr);
+											task.registerDoneEmptyingBufferListner(BluetoothLeService.this);
+											gattExecutor.execute(task);
 										}
 									}
 								}
@@ -275,7 +251,9 @@ public class BluetoothLeService extends Service implements NewPacketBroadcaster,
 									break;
 								}
 								Log.v(myTag, "Starting scan");
-								btAdapter.startLeScan(mLeScanCallback);
+								while (!btAdapter.startLeScan(mLeScanCallback)) {
+									Thread.sleep(250);
+								}
 								Log.v(myTag, "Sleeping while scanning");
 								while (!moteFound.get() || ((System.currentTimeMillis() - timeOfLastPacketReceived.get()) < 1000)) {
 									if (!isRunnning.get()) {
