@@ -10,81 +10,67 @@ public class AdvertisementPacket {
 	private final static String TAG = AdvertisementPacket.class.getSimpleName();
 	private String deviceName;
 	private String location;
-	private ITUConstants.ITU_SENSOR_TYPE sensorType; 
+	private ITUConstants.ITU_SENSOR_TYPE sensorType;
 	private double value;
 	private ITUConstants.ITU_MOTE_COORDINATE coordinate;
-	private ITUConstants.ITU_MOTE_TYPE moteType;
-	private boolean bufferFull;
-	private int batteryLevelIncreamentOf10;
-	private String id;
+	private ITUConstants.ITU_SENSOR_CONFIG_TYPE sensorConfigType;
+	private int batteryLevel;
 	private Date timeStamp;
 	private BluetoothDevice device;
 	private long timeOfLastDiscoveryCheck;
-	
-	/*public AdvertisementPacket(String deviceName, String location, ITU_SENSOR_TYPE sensorType, double value, ITU_MOTE_COORDINATE coordinate, ITU_MOTE_TYPE moteType) {
-		super();
-		this.deviceName = deviceName;
-		this.location = location;
-		this.sensorType = sensorType;
-		this.value = value;
-		this.coordinate = coordinate;
-		this.moteType = moteType;
-	}*/
-	
-	public AdvertisementPacket(){}
-	
+	private int bufferLevel;
+	private int id;
+	private boolean bufferNeedsCleaning;
+
+	/*
+	 * public AdvertisementPacket(String deviceName, String location, ITU_SENSOR_TYPE sensorType, double value, ITU_MOTE_COORDINATE coordinate, ITU_MOTE_TYPE moteType) { super(); this.deviceName =
+	 * deviceName; this.location = location; this.sensorType = sensorType; this.value = value; this.coordinate = coordinate; this.moteType = moteType; }
+	 */
+
+
+
+	public AdvertisementPacket() {}
+
 	public static AdvertisementPacket processITUAdvertisementValue(byte[] data, int index, int length, String deviceName, BluetoothDevice device) {
 		AdvertisementPacket packet = new AdvertisementPacket();
 		packet.setDeviceName(deviceName);
-		byte header = data[index++];
-		if((header & (0x01 << 4)) > 0){
-			int locationNameLength = 14 - deviceName.length();
-			String locationName = BluetoothHelper.decodeLocalName(data, index, locationNameLength);
-			//Log.v(TAG, "Location name: " + locationName);
-			index += locationNameLength;
-			packet.setLocation(locationName);
-		}
-		if((header & (0x01 << 3)) > 0){
-			ITUConstants.ITU_SENSOR_TYPE type = ITUConstants.ITU_SENSOR_TYPE_ARRAY[data[index] > 100 ? (data[index] - 107) : (data[index])];
-			//Log.i(TAG, "type: " + type);
-			//System.out.println("___ type: " + type );
-			packet.setSensorType(type);
-			index++;
-		}
-		if((header & (0x01 << 2)) > 0){		
-			double value = BluetoothHelper.getIEEEFloatValue(BluetoothHelper.unsignedBytesToInt(data, index));
-			//Log.i(TAG, "value: " + value);
-			index += 4;
-			packet.setValue(value);
-		}
-		if((header & (0x01 << 1)) > 0){			
-			ITUConstants.ITU_MOTE_COORDINATE coor = ITUConstants.ITU_MOTE_COORDINATE_ARRAY[data[index++]];
-			//Log.v(TAG, "coord: " + coor);
-			packet.setCoordinate(coor);
-		}
-		if((header & 0x01) > 0){
-			int misc = data[index] & 0x000000ff;
-			
-			int moteType = ((misc >> 1) & 0x07);
-			//Log.v(TAG, "sensor type: " + moteType );
-			packet.setMoteType(ITUConstants.ITU_MOTE_TYPE_ARRAY[moteType]);
-			
-			if(moteType == 0){
-				int batteryLevel = (misc >> 4);
-				//Log.v(TAG, "battery level: " + batteryLevel);
-				packet.setBatteryLevelIncreamentOf10(batteryLevel);
-				
-				boolean bufferFull = (misc & 0x01) == 1;
-				//Log.v(TAG, "buffer full: " +  bufferFull);
-				packet.setBufferFull(bufferFull);
-			}			
-		}
-		packet.setId();
-		packet.timeStamp = new Date();
 		packet.setDevice(device);
+
+		String locationName = BluetoothHelper.decodeLocation(data, index);
+		
+		index += locationName.length() + 1;
+		packet.setLocation(locationName);
+		
+		packet.setBufferLevel(data[index++]);
+		
+		int misc = data[index++] & 0x000000ff;
+
+		int sensorConfigType = (misc & 0x00000001);
+		packet.setSensorConfigType(ITUConstants.ITU_SENSOR_CONFIG_TYPE_ARRAY[sensorConfigType]);
+		
+		packet.setBufferNeedsCleaning(((misc >> 1) & 0x00000001) == 1);
+
+		int batteryLevel = (misc >> 2) & 0x000000ff;
+		packet.setBatteryLevel((int) ((100 - batteryLevel) * 1.1)); // Go from 3,6 to 3,3 ref
+
+		ITUConstants.ITU_SENSOR_TYPE type = ITUConstants.ITU_SENSOR_TYPE_ARRAY[data[index++]];
+		packet.setSensorType(type);
+
+		double value = BluetoothHelper.getIEEEFloatValue(BluetoothHelper.unsignedBytesToInt(data, index));
+		index += 4;
+		packet.setValue(value);
+
+		ITUConstants.ITU_MOTE_COORDINATE coor = ITUConstants.ITU_MOTE_COORDINATE_ARRAY[data[index++]];
+		packet.setCoordinate(coor);
+
+		int id = ((data[index++]) & 0x000000ff)  | ((data[index++] << 8) & 0x0000ff00);
+		packet.setId(id);
+
+		packet.timeStamp = new Date();
+		
 		return packet;
 	}
-	
+
 	private void setDevice(BluetoothDevice device) {
 		this.device = device;
 	}
@@ -93,69 +79,64 @@ public class AdvertisementPacket {
 		return device;
 	}
 
-	public boolean isBufferFull() {
-		return bufferFull;
-	}
-
-	private void setBufferFull(boolean bufferFull) {
-		this.bufferFull = bufferFull;
-	}
-
 	public Date getTimeStamp() {
 		return timeStamp;
 	}
 
-	public int getBatteryLevelIncreamentOf10() {
-		return batteryLevelIncreamentOf10;
+	public int getBatteryLevel() {
+		return batteryLevel;
 	}
 
-	private void setBatteryLevelIncreamentOf10(int batteryLevelIncreamentOf10) {
-		this.batteryLevelIncreamentOf10 = batteryLevelIncreamentOf10;
+	private void setBatteryLevel(int batteryLevel) {
+		this.batteryLevel = batteryLevel;
 	}
 
 	public String getDeviceName() {
 		return deviceName;
 	}
+
 	private void setDeviceName(String deviceName) {
 		this.deviceName = deviceName;
 	}
+
 	public String getLocation() {
 		return location;
 	}
+
 	private void setLocation(String location) {
 		this.location = location;
 	}
+
 	public ITUConstants.ITU_SENSOR_TYPE getSensorType() {
 		return sensorType;
 	}
+
 	private void setSensorType(ITUConstants.ITU_SENSOR_TYPE sensorType) {
 		this.sensorType = sensorType;
 	}
+
 	public double getValue() {
 		return value;
 	}
+
 	private void setValue(double value) {
 		this.value = value;
 	}
+
 	public ITUConstants.ITU_MOTE_COORDINATE getCoordinate() {
 		return coordinate;
 	}
+
 	private void setCoordinate(ITUConstants.ITU_MOTE_COORDINATE coordinate) {
 		this.coordinate = coordinate;
 	}
-	public ITUConstants.ITU_MOTE_TYPE getMoteType() {
-		return moteType;
-	}
-	private void setMoteType(ITUConstants.ITU_MOTE_TYPE moteType) {
-		this.moteType = moteType;
-	}
-	
-	private void setId() {
-		this.id = deviceName+location+coordinate+sensorType;
+
+	public ITUConstants.ITU_SENSOR_CONFIG_TYPE getSensorConfigType() {
+		return sensorConfigType;
 	}
 
-	public String getId() {
-		return id;
+	private void setSensorConfigType(ITUConstants.ITU_SENSOR_CONFIG_TYPE moteType) {
+		this.sensorConfigType = moteType;
 	}
 
 	public long getTimeOfLastDiscoveryCheck() {
@@ -166,11 +147,35 @@ public class AdvertisementPacket {
 		this.timeOfLastDiscoveryCheck = timeOfLastDiscoveryCheck;
 	}
 
+	public int getBufferLevel() {
+		return bufferLevel;
+	}
+
+	public void setBufferLevel(int bufferLevel) {
+		this.bufferLevel = bufferLevel;
+	}
+
+	public int getId() {
+		return id;
+	}
+
+	public void setId(int id) {
+		this.id = id;
+	}
+
+	public boolean isBufferNeedsCleaning() {
+		return bufferNeedsCleaning;
+	}
+
+	public void setBufferNeedsCleaning(boolean bufferNeedsCleaning) {
+		this.bufferNeedsCleaning = bufferNeedsCleaning;
+	}
+
 	@Override
 	public int hashCode() {
 		final int prime = 31;
 		int result = 1;
-		result = prime * result + ((id == null) ? 0 : id.hashCode());
+		result = prime * result + id;
 		return result;
 	}
 
@@ -180,15 +185,16 @@ public class AdvertisementPacket {
 		if (obj == null) return false;
 		if (getClass() != obj.getClass()) return false;
 		AdvertisementPacket other = (AdvertisementPacket) obj;
-		if (id == null) {
-			if (other.id != null) return false;
-		} else if (!id.equals(other.id)) return false;
+		if (id != other.id) return false;
 		return true;
 	}
 
 	@Override
 	public String toString() {
-		return "AdvertisementPacket [deviceName=" + deviceName + ", location=" + location + ", sensorType=" + sensorType + ", value=" + value + ", coordinate=" + coordinate + ", moteType=" + moteType
-				+ ", bufferFull=" + bufferFull + ", batteryLevelIncreamentOf10=" + batteryLevelIncreamentOf10 + "]";
+		return "AdvertisementPacket [deviceName=" + deviceName + ", location=" + location + ", sensorType=" + sensorType + ", value=" + value + ", coordinate=" + coordinate + ", sensorConfigType="
+				+ sensorConfigType + ", batteryLevel=" + batteryLevel + ", timeStamp=" + timeStamp + ", bufferLevel=" + bufferLevel + ", id=" + id + ", bufferNeedsCleaning=" + bufferNeedsCleaning
+				+ "]";
 	}
+
+	
 }

@@ -116,9 +116,7 @@ public class BluetoothHelper {
 	public static double getIEEEFloatValue(int measurement) {
 		byte exponent = (byte) (measurement >> 24);
 		int mantissa = measurement & 0x00ffffff;
-		if (exponent == 0) return mantissa;
-		int result = (int) (mantissa * Math.pow(10, exponent) *100);
-		return result / 100.0;
+		return ((int)(mantissa * Math.pow(10, exponent)*10))/10.0;
 	}
 
 	/**
@@ -127,6 +125,28 @@ public class BluetoothHelper {
 	public static String decodeLocalName(final byte[] data, final int start, final int length) {
 		try {
 			return new String(data, start, length, "UTF-8");
+		} catch (final UnsupportedEncodingException e) {
+			Log.e(TAG, "Unable to convert the complete local name to UTF-8", e);
+			return null;
+		} catch (final IndexOutOfBoundsException e) {
+			Log.e(TAG, "Error when reading complete local name", e);
+			return null;
+		}
+	}
+	
+	/**
+	 * Decodes the local name
+	 */
+	public static String decodeLocation(final byte[] data, final int start) {
+		try {
+			int charIndex = start;
+			while(charIndex < start+13){
+				if(data[charIndex] == '\0'){
+					break;
+				}
+				charIndex++;
+			}
+			return new String(data, start, charIndex-start, "UTF-8");
 		} catch (final UnsupportedEncodingException e) {
 			Log.e(TAG, "Unable to convert the complete local name to UTF-8", e);
 			return null;

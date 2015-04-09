@@ -41,12 +41,12 @@ public class BluetoothLeService extends Service implements NewPacketBroadcaster,
 	private BluetoothManager btManager;
 	private BluetoothAdapter btAdapter;
 	private AtomicBoolean isRunnning = new AtomicBoolean(false);
-	private AtomicLong timeOfLastPacketReceived = new AtomicLong();
 	private ExecutorService gattExecutor;
 	private Map<String, List<BluetoothGattService>> devices = new HashMap<String, List<BluetoothGattService>>();
 	// private static AtomicBoolean isDoingStuff = new AtomicBoolean(false);
 	private List<Byte> json = new ArrayList<Byte>();
 	private Set<AdvertisementPacket> packets = new HashSet<AdvertisementPacket>();
+	private Set<String> adrHits = new HashSet<String>();
 	private Map<String, Long> timeOfLastDiscoveryCheckMap = new HashMap<String, Long>();
 	private Set<String> emptyBufferTasks = new HashSet<String>();
 	// public static BluetoothLeService instance;
@@ -162,25 +162,33 @@ public class BluetoothLeService extends Service implements NewPacketBroadcaster,
 					public void run() {
 						if (isRunnning.get()) {
 							int[] result = BluetoothHelper.findIndexOfAdvertisementType(scanRecord, GattAttributes.SHORTENED_LOCAL_NAME);
-
-							if (result == null || result.length != 2) return;
-							final String deviceName = BluetoothHelper.decodeLocalName(scanRecord, result[0], result[1]);
+							final String deviceName;
+							if (result == null || result.length != 2){
+								deviceName = "";
+							}else{
+								deviceName = BluetoothHelper.decodeLocalName(scanRecord, result[0], result[1]);
+							}							
 							result = BluetoothHelper.findIndexOfAdvertisementType(scanRecord, GattAttributes.MANUFACTURER_SPECIFIC_DATA);
 							if (result == null || result.length != 2) return;
 							boolean isITUMote = BluetoothHelper.decodeManufacturerID(scanRecord, result[0]);
-							if (deviceName != null && deviceName.length() > 0 && isITUMote) {
+							if (isITUMote && isRunnning.get()) {
 								// We know that the first 2 bytes are for the manufacturer ID... so skip them
 								AdvertisementPacket packet = AdvertisementPacket.processITUAdvertisementValue(scanRecord, result[0] + 2, result[1] - 2, deviceName, device);
 								packets.remove(packet);
 								packets.add(packet);
-								timeOfLastPacketReceived.set(System.currentTimeMillis());
 								for (NewPacketListner listner : listners) {
 									listner.newPacketArrived(packet);
 								}
-								moteFound.set(true);
 								String adr = device.getAddress();
-								Log.v(TAG, "Buffer state: " + packet.isBufferFull() + " adr: " + adr);
-								if (packet.isBufferFull()) {
+								synchronized (adrHits) {
+									if(!adrHits.contains(adr)){
+										adrHits.add(adr);
+										moteFound.set(true);
+									}
+								}							
+								Log.v(TAG, "Packet: " + packet.getId());
+								if (packet.isBufferNeedsCleaning() && isRunnning.get()) {
+									Log.i(TAG, "Packet: " + packet);
 									synchronized (emptyBufferTasks) {
 										if (!emptyBufferTasks.contains(adr)) {
 											EmptyBufferTask task = new EmptyBufferTask();
@@ -240,7 +248,7 @@ public class BluetoothLeService extends Service implements NewPacketBroadcaster,
 				// gattExecutor = Executors.newSingleThreadExecutor();
 				Thread scanner = new Thread(new Runnable() {
 					private long timeSinceLastReset = System.currentTimeMillis();
-
+					private long timeSinceLastScanReset;
 					@Override
 					public void run() {
 						String myTag = "Ble scanner thread";
@@ -250,18 +258,22 @@ public class BluetoothLeService extends Service implements NewPacketBroadcaster,
 								if (!isRunnning.get()) {
 									break;
 								}
-								Log.v(myTag, "Starting scan");
+								//Log.v(myTag, "Starting scan");
 								while (!btAdapter.startLeScan(mLeScanCallback)) {
 									Thread.sleep(250);
 								}
-								Log.v(myTag, "Sleeping while scanning");
-								while (!moteFound.get() || ((System.currentTimeMillis() - timeOfLastPacketReceived.get()) < 1000)) {
+								//Log.v(myTag, "Sleeping while scanning");
+								timeSinceLastScanReset = System.currentTimeMillis();
+								synchronized (adrHits) {
+									adrHits.clear();
+								}	
+								while (!moteFound.get() || ((System.currentTimeMillis() - timeSinceLastScanReset) < 1000)) {
 									if (!isRunnning.get()) {
 										break;
 									}
 									Thread.sleep(100);
 								}
-								Log.v(myTag, "mote found... we should reset scanning");
+								//Log.v(myTag, "mote found... we should reset scanning");
 								moteFound.set(false);
 								btAdapter.stopLeScan(mLeScanCallback);
 								// We need to check if we are in data-sink mode
@@ -309,7 +321,7 @@ public class BluetoothLeService extends Service implements NewPacketBroadcaster,
 		isRunnning.set(false);
 		btAdapter.stopLeScan(mLeScanCallback);
 		if (gattExecutor != null) {
-			gattExecutor.shutdown();
+			gattExecutor.shutdownNow();
 			try {
 				gattExecutor.awaitTermination(5, TimeUnit.SECONDS);
 			}

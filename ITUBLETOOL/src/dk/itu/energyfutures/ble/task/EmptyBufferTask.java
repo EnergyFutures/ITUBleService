@@ -13,6 +13,7 @@ import android.bluetooth.BluetoothProfile;
 import android.content.Context;
 import android.util.Log;
 import dk.itu.energyfutures.ble.DoneEmptyingBufferListner;
+import dk.itu.energyfutures.ble.helpers.BluetoothHelper;
 import dk.itu.energyfutures.ble.helpers.GattAttributes;
 import dk.itu.energyfutures.ble.helpers.ITUConstants;
 
@@ -25,7 +26,10 @@ public class EmptyBufferTask implements Runnable, DoneEmptyingBufferNotifer {
 	private List<DoneEmptyingBufferListner> doneEmptyingBufferListners = new ArrayList<DoneEmptyingBufferListner>();
 	private boolean done;
 	private int pointer = 0;
-	private byte[] values = new byte[250];
+	private byte[] values = new byte[55000];
+	private BluetoothGatt bleGatt;
+	private static final int WAIT_TIME = 5 * 60 * 1000;
+	private static final int THREAD_SLEEP = 1 * 1000;
 
 
 	public BluetoothDevice getDevice() {
@@ -39,19 +43,41 @@ public class EmptyBufferTask implements Runnable, DoneEmptyingBufferNotifer {
 	@Override
 	public void run() {
 		device.connectGatt(context, false, gattCallback);
+		long time = System.currentTimeMillis();
+		Thread thisThread = Thread.currentThread();
 		try {
 			while (!done) {
-				Thread.sleep(1000);
-			}
-			for (DoneEmptyingBufferListner listner : doneEmptyingBufferListners) {
-				listner.onDoneEmptyingBuffer(device.getAddress());
-			}
-			for (int i = 0; i < pointer; i++) {
-				Log.v(TAG, "value: " + values[i]);
+				if(System.currentTimeMillis() - time > WAIT_TIME){
+					throw new IllegalStateException("We timed out");
+				}else if(thisThread.isInterrupted()){
+					throw new IllegalStateException("We were interrupted");
+				}
+				Thread.sleep(THREAD_SLEEP);
 			}
 		}
-		catch (InterruptedException e) {
-			e.printStackTrace();
+		catch (Exception e) {
+			if(bleGatt != null){
+				bleGatt.disconnect();
+			}	
+			
+		}finally{
+			if(bleGatt != null){
+				bleGatt.close();
+			}	
+			for (DoneEmptyingBufferListner listner : doneEmptyingBufferListners) {
+				listner.onDoneEmptyingBuffer(device.getAddress());
+			}	
+			int myCounter = 1;
+			try {
+				for (int i = 0; i < pointer; ) {
+					Log.v(TAG, "value"+myCounter+": " + BluetoothHelper.getIEEEFloatValue(BluetoothHelper.unsignedBytesToInt(values, i)));
+					i += 8;
+					myCounter++;
+				}
+			}
+			catch (Exception e) {
+				Log.e(TAG, e.getMessage());
+			}
 		}
 	}
 
@@ -60,12 +86,15 @@ public class EmptyBufferTask implements Runnable, DoneEmptyingBufferNotifer {
 		public void onConnectionStateChange(final BluetoothGatt gatt, int status, int newState) {
 			String adr = gatt.getDevice().getAddress();
 			if (newState == BluetoothProfile.STATE_CONNECTED) {
-				Log.v(TAG, "Connected to GATT server: " + adr);
+				Log.i(TAG, "Connected to GATT server: " + adr);
 				gatt.discoverServices();
+				bleGatt = gatt;
 			} else if (newState == BluetoothProfile.STATE_DISCONNECTING) {
 				Log.v(TAG, "Disconnecting to GATT server: " + adr);
+				done = true;
 			} else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
 				Log.v(TAG, "Disconnected to GATT server: " + adr);
+				done = true;
 			} else if (newState == BluetoothProfile.STATE_CONNECTING) {
 				Log.v(TAG, "Connecting to GATT server: " + adr);
 			}
@@ -76,19 +105,17 @@ public class EmptyBufferTask implements Runnable, DoneEmptyingBufferNotifer {
 			String adr = gatt.getDevice().getAddress();
 			if (status == BluetoothGatt.GATT_SUCCESS) {
 				Log.v(TAG, "Done discovering: " + adr);
-				BluetoothGattService service = gatt.getService(ITUConstants.BLE_UUID_ITU_READ_ALL_MEASUREMENT_SERVICE);
+				BluetoothGattService service = gatt.getService(ITUConstants.BLE_UUID_ITU_MOTE_SERVICE);
 				if(service == null){
-					Log.v(TAG, "Service is null");
+					Log.e(TAG, "Service is null");
 					gatt.disconnect();
-					gatt.close();
 					done = true;
 					return;
 				}
-				readAllChar = service.getCharacteristic(ITUConstants.BLE_UUID_ITU_READ_ALL_MEASUREMENT_VALUE_CHAR);
+				readAllChar = service.getCharacteristic(ITUConstants.BLE_UUID_ITU_READ_ALL_MEASUREMENTS_VALUE_CHAR);
 				readAllDescriptor = readAllChar.getDescriptor(GattAttributes.BLE_UUID_CCCD_DESCRIPTOR);
-				Log.i(TAG, "enable notifications: " + gatt.setCharacteristicNotification(readAllChar, true));
+				Log.v(TAG, "enable notifications: " + gatt.setCharacteristicNotification(readAllChar, true));
 				readAllDescriptor.setValue(BluetoothGattDescriptor.ENABLE_INDICATION_VALUE);
-				Log.v(TAG, "Writing descriptor");
 				gatt.writeDescriptor(readAllDescriptor);
 			} else {
 				Log.e(TAG, "onServicesDiscovered received: " + status + " for adr: " + adr);
@@ -106,8 +133,8 @@ public class EmptyBufferTask implements Runnable, DoneEmptyingBufferNotifer {
 		public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
 			Log.v(TAG, "onCharacteristicChanged adr: " + gatt.getDevice().getAddress());
 			byte[] receivedBytes = characteristic.getValue();
-			if (receivedBytes.length == 4 && receivedBytes[0] == 0x00 && receivedBytes[1] == 0x01 && receivedBytes[2] == 0x02 && receivedBytes[3] == 0x03) {
-				Log.v(TAG, "Received zero packages");
+			if (receivedBytes.length == 1 && receivedBytes[0] == 0 ) {
+				Log.i(TAG, "Received termination package, disable notification");
 				gatt.setCharacteristicNotification(readAllChar, false);
 				readAllDescriptor.setValue(BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE);
 				gatt.writeDescriptor(readAllDescriptor);
@@ -136,9 +163,8 @@ public class EmptyBufferTask implements Runnable, DoneEmptyingBufferNotifer {
 			Log.v(TAG, "onDescriptorWrite received: " + status + " for adr: " + gatt.getDevice().getAddress());
 			Log.v(TAG, "And characteristic: " + descriptor.getUuid());
 			if (descriptor.getValue()[0] == 0 && descriptor.getValue()[1] == 0) {
-				Log.v(TAG, "Descriptor reset.. we should now disconnect");
+				Log.i(TAG, "Descriptor reset.. we should now disconnect");
 				gatt.disconnect();
-				gatt.close();
 				done = true;
 			}
 		};
