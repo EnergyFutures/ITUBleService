@@ -12,37 +12,35 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.BLUETOOTH" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
 
     <uses-feature
         android:name="android.hardware.bluetooth_le"
         android:required="true" />
+    
 
     <application
         android:allowBackup="false"
         android:icon="@drawable/ic_launcher"
         android:label="BleService"
-        android:theme="@android:style/Theme.Holo.Light" >
-        <activity android:name=".DeviceScanActivity" >
+        android:theme="@android:style/Theme.Holo.Light" 
+        android:name="dk.itu.energyfutures.ble.Application">
+        <activity android:name="dk.itu.energyfutures.ble.activities.LocationListActivity" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity
-            android:name=".LocationActivity"
-            android:label="@string/title_activity_room"
-            android:parentActivityName=".DeviceScanActivity" >
-        </activity>
+        <activity android:parentActivityName="dk.itu.energyfutures.ble.activities.LocationListActivity" android:name="dk.itu.energyfutures.ble.activities.LocationActivity" />
+        <activity android:parentActivityName="dk.itu.energyfutures.ble.activities.LocationListActivity" android:name="dk.itu.energyfutures.ble.activities.MoteListActivity" />
 
         <service
-            android:name="dk.itu.energyfutures.ble.BluetoothLeService"
+            android:name="dk.itu.energyfutures.ble.BluetoothLEBackgroundService"
             android:enabled="true"
             android:exported="false"
             android:singleUser="true"
             />
-
-        
     </application>
 
 </manifest>

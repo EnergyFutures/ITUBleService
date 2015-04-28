@@ -1,4 +1,4 @@
-package dk.itu.energyfutures.ble;
+package dk.itu.energyfutures.ble.smap;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -15,10 +15,11 @@ import org.apache.http.impl.client.DefaultHttpClient;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import dk.itu.energyfutures.ble.BluetoothLEBackgroundService;
 import android.util.Log;
 
 public class SMAPPoster {
-	private final static String TAG = BluetoothLeService.class.getSimpleName();
+	private final static String TAG = BluetoothLEBackgroundService.class.getSimpleName();
 	private static LinkedBlockingQueue<ITUMeasurementSmap> measurements = new LinkedBlockingQueue<ITUMeasurementSmap>(10000);
 	private static final Map<Integer, String> ids = new HashMap<Integer, String>();
 	private static ExecutorService executor = Executors.newSingleThreadExecutor();

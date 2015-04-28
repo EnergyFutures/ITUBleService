@@ -8,4 +8,12 @@
           android:title="Exit"
           android:orderInCategory="2"
           android:showAsAction="ifRoom|withText"/>
+    <item android:id="@+id/main_mote_view"
+          android:title="Mote View"
+          android:orderInCategory="3"
+          android:showAsAction="withText|never"/>
+    <item android:id="@+id/main_toggle_data_sink"
+          android:title="Toggle DataSink Flag"
+          android:orderInCategory="4"
+          android:showAsAction="withText|never"/>
 </menu>

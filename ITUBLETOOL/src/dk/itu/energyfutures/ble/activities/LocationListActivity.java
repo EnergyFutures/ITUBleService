@@ -1,16 +1,20 @@
-package dk.itu.energyfutures.ble;
+package dk.itu.energyfutures.ble.activities;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
+import java.util.TreeMap;
 
+import android.app.Activity;
 import android.app.ListActivity;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.util.TypedValue;
@@ -20,15 +24,27 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
+import android.widget.GridView;
+import android.widget.RelativeLayout.LayoutParams;
 import android.widget.TextView;
 import android.widget.Toast;
-import dk.itu.energyfutures.ble.BluetoothLeService.LocalBinder;
+import dk.itu.energyfutures.ble.AdvertisementPacket;
+import dk.itu.energyfutures.ble.Application;
+import dk.itu.energyfutures.ble.BluetoothLEBackgroundService;
+import dk.itu.energyfutures.ble.R;
+import dk.itu.energyfutures.ble.BluetoothLEBackgroundService.LocalBinder;
+import dk.itu.energyfutures.ble.R.drawable;
+import dk.itu.energyfutures.ble.R.id;
+import dk.itu.energyfutures.ble.R.menu;
+import dk.itu.energyfutures.ble.helpers.ITUConstants;
+import dk.itu.energyfutures.ble.packethandlers.PacketListListner;
 
-public class DeviceScanActivity extends ListActivity implements NewPacketListner {
-	private final static String TAG = DeviceScanActivity.class.getSimpleName();
-	private HashMap<String, HashSet<AdvertisementPacket>> packets = new HashMap<String, HashSet<AdvertisementPacket>>();
+public class LocationListActivity extends Activity implements PacketListListner {
+	private final static String TAG = LocationListActivity.class.getSimpleName();
+	private Map<String, HashSet<AdvertisementPacket>> packets = new TreeMap<String, HashSet<AdvertisementPacket>>();
 	private MyAdapter adapter = new MyAdapter(packets);
-	private BluetoothLeService service;
+	private BluetoothLEBackgroundService service;
+	private static final int backgroundColor = Color.argb(135, 200, 120, 249);
 	private boolean bound;
 
 	@Override
@@ -42,9 +58,12 @@ public class DeviceScanActivity extends ListActivity implements NewPacketListner
 			}
 		}
 		getActionBar().setTitle("ITU BLE TOOL");
-		this.setListAdapter(adapter);
-		this.getListView().setDivider(getResources().getDrawable(R.drawable.divider));
-		this.getListView().setDividerHeight((int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 2, getResources().getDisplayMetrics()));
+		setContentView(R.layout.location_list_view);
+		GridView gv = (GridView) findViewById(R.id.gridView3);
+		gv.setAdapter(adapter);
+//		this.setListAdapter(adapter);
+//		this.getListView().setDivider(getResources().getDrawable(R.drawable.divider));
+//		this.getListView().setDividerHeight((int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 2, getResources().getDisplayMetrics()));
 	}
 
 	// Adapter for holding devices found through scanning.
@@ -75,20 +94,22 @@ public class DeviceScanActivity extends ListActivity implements NewPacketListner
 		public View getView(final int i, View view, ViewGroup viewGroup) {
 			TextView v = (TextView) view;
 			if (v == null) {
-				v = new TextView(DeviceScanActivity.this);
-				v.setTextSize(30);
+				v = new TextView(LocationListActivity.this);
 				v.setGravity(Gravity.CENTER_HORIZONTAL);
+				v.setTextSize(30);
+				v.setMaxLines(1);
 				v.setClickable(true);
 				v.setOnClickListener(new View.OnClickListener() {
 					@Override
 					public void onClick(View v) {
 						if (v != null && v.getTag() != null) {
-							Intent intent = new Intent(DeviceScanActivity.this, LocationActivity.class);
+							Intent intent = new Intent(LocationListActivity.this, LocationActivity.class);
 							intent.putExtra(LocationActivity.MOTE_LOCATION, mData.get(i).getKey());
 							startActivity(intent);
 						}
 					}
 				});
+				//v.setBackgroundColor(backgroundColor);
 			}
 			Entry<String, HashSet<AdvertisementPacket>> item = getItem(i);
 			v.setText(item.getKey());
@@ -120,7 +141,7 @@ public class DeviceScanActivity extends ListActivity implements NewPacketListner
 	protected void onStart() {
 		super.onStart();
 		// Bind to LocalService
-		Intent intent = new Intent(this, BluetoothLeService.class);
+		Intent intent = new Intent(this, BluetoothLEBackgroundService.class);
 		startService(intent);
 		if (!bindService(intent, connection, BIND_AUTO_CREATE)) {
 			Toast.makeText(getApplicationContext(), "COULD NOT BIND TO BLE :0(", Toast.LENGTH_LONG).show();
@@ -149,7 +170,7 @@ public class DeviceScanActivity extends ListActivity implements NewPacketListner
 			unbindService(connection);
 			bound = false;
 			if (!isChangingConfigurations()) {
-				Intent intent = new Intent(this, BluetoothLeService.class);
+				Intent intent = new Intent(this, BluetoothLEBackgroundService.class);
 				stopService(intent);
 			}
 		}
@@ -157,7 +178,7 @@ public class DeviceScanActivity extends ListActivity implements NewPacketListner
 
 	private void refreshRooms() {
 		if (bound) {
-			Set<AdvertisementPacket> allPackets = service.getPackets();
+			Collection<AdvertisementPacket> allPackets = service.getPackets();
 			for (AdvertisementPacket packet : allPackets) {
 				HashSet<AdvertisementPacket> locationPackets = packets.get(packet.getLocation());
 				if (locationPackets == null) {
@@ -180,7 +201,7 @@ public class DeviceScanActivity extends ListActivity implements NewPacketListner
 			// We've bound to LocalService, cast the IBinder and get LocalService instance
 			LocalBinder binder = (LocalBinder) iBinder;
 			service = binder.getService();
-			service.registerListner(DeviceScanActivity.this);
+			service.registerListner(LocationListActivity.this);
 			bound = true;
 			refreshRooms();
 		}
@@ -195,6 +216,8 @@ public class DeviceScanActivity extends ListActivity implements NewPacketListner
 	public boolean onCreateOptionsMenu(Menu menu) {
 		// Inflate the menu; this adds items to the action bar if it is present.
 		getMenuInflater().inflate(R.menu.main, menu);
+		MenuItem item = menu.findItem(R.id.main_mote_view);
+		item.setVisible(Application.isDataSink());
 		return true;
 	}
 
@@ -215,7 +238,37 @@ public class DeviceScanActivity extends ListActivity implements NewPacketListner
 		} else if (id == R.id.main_exit) {
 			finish();
 			return true;
+		}else if (id == R.id.main_mote_view) {
+			Intent intent = new Intent(LocationListActivity.this, MoteListActivity.class);
+			startActivity(intent);
+		}
+		else if (id == R.id.main_toggle_data_sink) {
+			Application.toggleDataSink();
+			invalidateOptionsMenu();
 		}
 		return super.onOptionsItemSelected(item);
+	}
+
+	@Override
+	public void PacketsDeprecated(List<AdvertisementPacket> deprecatedPackets) {
+		boolean removedLocation = false;
+		for(AdvertisementPacket packet : deprecatedPackets){
+			HashSet<AdvertisementPacket> localPackets = packets.get(packet.getLocation());
+			if (localPackets != null) {
+				localPackets.remove(packet);
+				if(localPackets.size() == 0){
+					packets.remove(packet.getLocation());
+					removedLocation = true;
+				}
+			}
+		}
+		if(removedLocation){
+			this.runOnUiThread(new Runnable() {
+				@Override
+				public void run() {
+					adapter.notifyDataSetChanged();
+				}
+			});
+		}
 	}
 }

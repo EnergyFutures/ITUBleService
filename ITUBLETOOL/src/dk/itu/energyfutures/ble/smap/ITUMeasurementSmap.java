@@ -1,4 +1,4 @@
-package dk.itu.energyfutures.ble;
+package dk.itu.energyfutures.ble.smap;
 
 
 public class ITUMeasurementSmap {

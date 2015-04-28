@@ -12,7 +12,7 @@ import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothProfile;
 import android.content.Context;
 import android.util.Log;
-import dk.itu.energyfutures.ble.DoneEmptyingBufferListner;
+import dk.itu.energyfutures.ble.Application;
 import dk.itu.energyfutures.ble.helpers.BluetoothHelper;
 import dk.itu.energyfutures.ble.helpers.GattAttributes;
 import dk.itu.energyfutures.ble.helpers.ITUConstants;
@@ -67,17 +67,7 @@ public class EmptyBufferTask implements Runnable, DoneEmptyingBufferNotifer {
 			for (DoneEmptyingBufferListner listner : doneEmptyingBufferListners) {
 				listner.onDoneEmptyingBuffer(device.getAddress());
 			}	
-			int myCounter = 1;
-			try {
-				for (int i = 0; i < pointer; ) {
-					Log.v(TAG, "value"+myCounter+": " + BluetoothHelper.getIEEEFloatValue(BluetoothHelper.unsignedBytesToInt(values, i)));
-					i += 8;
-					myCounter++;
-				}
-			}
-			catch (Exception e) {
-				Log.e(TAG, e.getMessage());
-			}
+			Log.v(TAG, "Number of received  bytes: " + pointer);
 		}
 	}
 
@@ -117,6 +107,7 @@ public class EmptyBufferTask implements Runnable, DoneEmptyingBufferNotifer {
 				Log.v(TAG, "enable notifications: " + gatt.setCharacteristicNotification(readAllChar, true));
 				readAllDescriptor.setValue(BluetoothGattDescriptor.ENABLE_INDICATION_VALUE);
 				gatt.writeDescriptor(readAllDescriptor);
+				Application.showShortToastOnUI("Off-loading device: " + adr);
 			} else {
 				Log.e(TAG, "onServicesDiscovered received: " + status + " for adr: " + adr);
 			}
@@ -164,6 +155,7 @@ public class EmptyBufferTask implements Runnable, DoneEmptyingBufferNotifer {
 			Log.v(TAG, "And characteristic: " + descriptor.getUuid());
 			if (descriptor.getValue()[0] == 0 && descriptor.getValue()[1] == 0) {
 				Log.i(TAG, "Descriptor reset.. we should now disconnect");
+				Application.showShortToastOnUI("Done off-loading device: " + gatt.getDevice().getAddress() + ". Received bytes: " + pointer);
 				gatt.disconnect();
 				done = true;
 			}

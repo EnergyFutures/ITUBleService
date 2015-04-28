@@ -20,6 +20,8 @@ public class ITUConstants {
 	public static UUID BLE_UUID_ITU_CONFIG_MOTE_CHAR = UUID.fromString("0000ff05-0000-1000-8000-00805f9b34fb");
 
 	public static final SimpleDateFormat dateFormat = new SimpleDateFormat("kk:mm:ss");
+	
+	public static final String DEVICE_IS_A_GATEWAY_KEY = "DEVICE_IS_A_GATEWAY_KEY";
 
 	public static enum ITU_MOTE_COORDINATE {
 		ITS_MEAS_LOCATION_NOT_SET,
@@ -42,7 +44,8 @@ public class ITUConstants {
 		BLE_UUID_ITU_SENSOR_TYPE_MOTION,
 		BLE_UUID_ITU_ACTUATOR_TYPE_NOT_SET,
 		BLE_UUID_ITU_ACTUATOR_TYPE_WINDOW, 
-		BLE_UUID_ITU_ACTUATOR_TYPE_AC
+		BLE_UUID_ITU_ACTUATOR_TYPE_AC,
+		BLE_UUID_ITU_SENSOR_TYPE_AMPERE
 	}
 
 	public static final ITU_SENSOR_TYPE[] ITU_SENSOR_TYPE_ARRAY = ITU_SENSOR_TYPE.values();
@@ -58,12 +61,13 @@ public class ITUConstants {
 		BLE_UUID_ITU_ACTUATOR_MAKE_NOT_SET,
 		BLE_UUID_ITU_ACTUATOR_MAKE_SSD_RELAY,
 		BLE_UUID_ITU_ACTUATOR_MAKE_BISTABLE_RELAY,
-		BLE_UUID_ITU_ACTUATOR_MAKE_MECH_RELAY
+		BLE_UUID_ITU_ACTUATOR_MAKE_MECH_RELAY,
+		BLE_UUID_ITU_SENSOR_MAKE_ACS712_5A
 	}
 
 	public static enum ITU_SENSOR_CONFIG_TYPE {
 		BLE_UUID_ITU_SENSOR_TYPE,
-		BLE_UUID_ITU_ACRUATOR_TYPE
+		BLE_UUID_ITU_ACTUATOR_TYPE
 	}
 
 	public static final ITU_SENSOR_CONFIG_TYPE[] ITU_SENSOR_CONFIG_TYPE_ARRAY = ITU_SENSOR_CONFIG_TYPE.values();
@@ -120,6 +124,8 @@ public class ITUConstants {
 			return R.drawable.ac_icon;
 		case BLE_UUID_ITU_ACTUATOR_TYPE_WINDOW:
 			return R.drawable.window_icon;
+		case BLE_UUID_ITU_SENSOR_TYPE_AMPERE:
+			return R.drawable.current_icon;
 		default:
 			return R.drawable.unknown_icon;
 		}
