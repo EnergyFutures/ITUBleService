@@ -95,22 +95,22 @@ public class LocationListActivity extends Activity implements PacketListListner 
 			TextView v = (TextView) view;
 			if (v == null) {
 				v = new TextView(LocationListActivity.this);
-				v.setGravity(Gravity.CENTER_HORIZONTAL);
-				v.setTextSize(30);
-				v.setMaxLines(1);
-				v.setClickable(true);
-				v.setOnClickListener(new View.OnClickListener() {
-					@Override
-					public void onClick(View v) {
-						if (v != null && v.getTag() != null) {
-							Intent intent = new Intent(LocationListActivity.this, LocationActivity.class);
-							intent.putExtra(LocationActivity.MOTE_LOCATION, mData.get(i).getKey());
-							startActivity(intent);
-						}
-					}
-				});
-				//v.setBackgroundColor(backgroundColor);
+				// v.setBackgroundColor(backgroundColor);
 			}
+			v.setGravity(Gravity.CENTER_HORIZONTAL);
+			v.setTextSize(30);
+			v.setMaxLines(1);
+			v.setClickable(true);
+			v.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					if (v != null && v.getTag() != null) {
+						Intent intent = new Intent(LocationListActivity.this, LocationActivity.class);
+						intent.putExtra(LocationActivity.MOTE_LOCATION, mData.get(i).getKey());
+						startActivity(intent);
+					}
+				}
+			});
 			Entry<String, HashSet<AdvertisementPacket>> item = getItem(i);
 			v.setText(item.getKey());
 			v.setTag(item.getValue());

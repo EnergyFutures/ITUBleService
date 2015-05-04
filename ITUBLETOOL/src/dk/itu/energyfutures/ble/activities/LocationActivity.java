@@ -144,64 +144,66 @@ public class LocationActivity extends Activity implements PacketListListner {
 			if (v == null) {
 				v = (RelativeLayout) getLayoutInflater().inflate(R.layout.sensor_container_layout, null);
 				v.setClickable(true);
-				v.setOnClickListener(new View.OnClickListener() {
-					@Override
-					public void onClick(View v) {
-						if (v != null && v.getTag() != null) {
-							final AdvertisementPacket packet = (AdvertisementPacket) v.getTag();
-							if (ITUConstants.ITU_SENSOR_TYPE.BLE_UUID_ITU_ACTUATOR_TYPE_AC.equals(packet.getSensorType())) {
-								final ProgressDialog dialog = ProgressDialog.show(LocationActivity.this, "Please wait", "Connecting...", true, false);
-								new ActuationTask(packet, dialog, LocationActivity.this,service).execute(null, null);
-							} else if (ITUConstants.ITU_SENSOR_TYPE.BLE_UUID_ITU_ACTUATOR_TYPE_WINDOW.equals(packet.getSensorType())) {
-								final WindowTask task = new WindowTask(packet, LocationActivity.this,service);
-								Builder builder = new AlertDialog.Builder(LocationActivity.this);
-								builder.setTitle("Window Control");
-								builder.setMessage("Please wait, connecting...");
-								builder.setPositiveButton("Close", null);
-								builder.setNegativeButton("Open", null);
-								builder.setNeutralButton("Stop", null);
-								builder.setOnDismissListener(new DialogInterface.OnDismissListener() {
-									@Override
-									public void onDismiss(DialogInterface dialog) {
-										task.dismissed();
-									}
-								});
-								final AlertDialog dialog = builder.create();
-								dialog.setCanceledOnTouchOutside(true);
-								dialog.setOnShowListener(new DialogInterface.OnShowListener() {
+				if(!Application.isDataSink()){
+					v.setOnClickListener(new View.OnClickListener() {
+						@Override
+						public void onClick(View v) {
+							if (v != null && v.getTag() != null) {
+								final AdvertisementPacket packet = (AdvertisementPacket) v.getTag();
+								if (ITUConstants.ITU_SENSOR_TYPE.BLE_UUID_ITU_ACTUATOR_TYPE_AC.equals(packet.getSensorType())) {
+									final ProgressDialog dialog = ProgressDialog.show(LocationActivity.this, "Please wait", "Connecting...", true, false);
+									new ActuationTask(packet, dialog, LocationActivity.this,service).execute(null, null);
+								} else if (ITUConstants.ITU_SENSOR_TYPE.BLE_UUID_ITU_ACTUATOR_TYPE_WINDOW.equals(packet.getSensorType())) {
+									final WindowTask task = new WindowTask(packet, LocationActivity.this,service);
+									Builder builder = new AlertDialog.Builder(LocationActivity.this);
+									builder.setTitle("Window Control");
+									builder.setMessage("Please wait, connecting...");
+									builder.setPositiveButton("Close", null);
+									builder.setNegativeButton("Open", null);
+									builder.setNeutralButton("Stop", null);
+									builder.setOnDismissListener(new DialogInterface.OnDismissListener() {
+										@Override
+										public void onDismiss(DialogInterface dialog) {
+											task.dismissed();
+										}
+									});
+									final AlertDialog dialog = builder.create();
+									dialog.setCanceledOnTouchOutside(true);
+									dialog.setOnShowListener(new DialogInterface.OnShowListener() {
 
-									@Override
-									public void onShow(DialogInterface dialogI) {
-										Button open = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
-										open.setOnClickListener(new View.OnClickListener() {
-											@Override
-											public void onClick(View v) {
-												task.closeWindow();
-											}
-										});
-										Button close = dialog.getButton(AlertDialog.BUTTON_NEGATIVE);
-										close.setOnClickListener(new View.OnClickListener() {
-											@Override
-											public void onClick(View v) {
-												task.openWindow();
-											}
-										});
-										Button stop = dialog.getButton(AlertDialog.BUTTON_NEUTRAL);
-										stop.setOnClickListener(new View.OnClickListener() {
-											@Override
-											public void onClick(View v) {
-												task.stopWindow();
-											}
-										});
-									}
-								});
-								task.setDialog(dialog);
-								task.execute(null, null);
-								dialog.show();
+										@Override
+										public void onShow(DialogInterface dialogI) {
+											Button open = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+											open.setOnClickListener(new View.OnClickListener() {
+												@Override
+												public void onClick(View v) {
+													task.closeWindow();
+												}
+											});
+											Button close = dialog.getButton(AlertDialog.BUTTON_NEGATIVE);
+											close.setOnClickListener(new View.OnClickListener() {
+												@Override
+												public void onClick(View v) {
+													task.openWindow();
+												}
+											});
+											Button stop = dialog.getButton(AlertDialog.BUTTON_NEUTRAL);
+											stop.setOnClickListener(new View.OnClickListener() {
+												@Override
+												public void onClick(View v) {
+													task.stopWindow();
+												}
+											});
+										}
+									});
+									task.setDialog(dialog);
+									task.execute(null, null);
+									dialog.show();
+								}
 							}
 						}
-					}
-				});
+					});
+				}
 			}
 			ImageView im = (ImageView) v.findViewById(R.id.imageView);
 			im.setImageResource(ITUConstants.findIconBySensorType(advertisementPacket));

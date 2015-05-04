@@ -7,7 +7,7 @@ import dk.itu.energyfutures.ble.helpers.BluetoothHelper;
 import dk.itu.energyfutures.ble.helpers.ITUConstants;
 
 public class AdvertisementPacket {
-	private final static String TAG = AdvertisementPacket.class.getSimpleName();
+	//private final static String TAG = AdvertisementPacket.class.getSimpleName();
 	private String deviceName;
 	private String location;
 	private ITUConstants.ITU_SENSOR_TYPE sensorType;
@@ -33,43 +33,48 @@ public class AdvertisementPacket {
 	public AdvertisementPacket() {}
 
 	public static AdvertisementPacket processITUAdvertisementValue(byte[] data, int index, int length, String deviceName, BluetoothDevice device) {
-		AdvertisementPacket packet = new AdvertisementPacket();
-		packet.setDeviceName(deviceName);
-		packet.setDevice(device);
+		try {
+			AdvertisementPacket packet = new AdvertisementPacket();
+			packet.setDeviceName(deviceName);
+			packet.setDevice(device);
 
-		String locationName = BluetoothHelper.decodeLocation(data, index);
-		
-		index += locationName.length() + 1;
-		packet.setLocation(locationName);
-		
-		packet.setBufferLevel(data[index++]);
-		
-		int misc = data[index++] & 0x000000ff;
+			String locationName = BluetoothHelper.decodeLocation(data, index);
+			
+			index += locationName.length() + 1;
+			packet.setLocation(locationName);
+			
+			packet.setBufferLevel(data[index++]);
+			
+			int misc = data[index++] & 0x000000ff;
 
-		int sensorConfigType = (misc & 0x00000001);
-		packet.setSensorConfigType(ITUConstants.ITU_SENSOR_CONFIG_TYPE_ARRAY[sensorConfigType]);
-		
-		packet.setBufferNeedsCleaning(((misc >> 1) & 0x00000001) == 1);
+			int sensorConfigType = (misc & 0x00000001);
+			packet.setSensorConfigType(ITUConstants.ITU_SENSOR_CONFIG_TYPE_ARRAY[sensorConfigType]);
+			
+			packet.setBufferNeedsCleaning(((misc >> 1) & 0x00000001) == 1);
 
-		int batteryLevel = (misc >> 2) & 0x000000ff;
-		packet.setBatteryLevel((int) ((100 - batteryLevel) * 1.1)); // Go from 3,6 to 3,3 ref
+			int batteryLevel = (misc >> 2) & 0x000000ff;
+			packet.setBatteryLevel((int) ((100 - batteryLevel) * 1.1)); // Go from 3,6 to 3,3 ref
 
-		ITUConstants.ITU_SENSOR_TYPE type = ITUConstants.ITU_SENSOR_TYPE_ARRAY[data[index++]];
-		packet.setSensorType(type);
+			ITUConstants.ITU_SENSOR_TYPE type = ITUConstants.ITU_SENSOR_TYPE_ARRAY[data[index++]];
+			packet.setSensorType(type);
 
-		double value = BluetoothHelper.getIEEEFloatValue(BluetoothHelper.unsignedBytesToInt(data, index));
-		index += 4;
-		packet.setValue(value);
+			double value = BluetoothHelper.getIEEEFloatValue(BluetoothHelper.unsignedBytesToInt(data, index));
+			index += 4;
+			packet.setValue(value);
 
-		ITUConstants.ITU_MOTE_COORDINATE coor = ITUConstants.ITU_MOTE_COORDINATE_ARRAY[data[index++]];
-		packet.setCoordinate(coor);
+			ITUConstants.ITU_MOTE_COORDINATE coor = ITUConstants.ITU_MOTE_COORDINATE_ARRAY[data[index++]];
+			packet.setCoordinate(coor);
 
-		int id = ((data[index++]) & 0x000000ff)  | ((data[index++] << 8) & 0x0000ff00);
-		packet.setId(locationName + deviceName + id + type);
+			int id = ((data[index++]) & 0x000000ff)  | ((data[index++] << 8) & 0x0000ff00);
+			packet.setId(locationName + deviceName + id + type);
 
-		packet.timeStamp = new Date();
-		
-		return packet;
+			packet.timeStamp = new Date();
+			
+			return packet;
+		}
+		catch (Exception e) {
+			return null;
+		}
 	}
 
 	private void setDevice(BluetoothDevice device) {

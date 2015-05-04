@@ -130,6 +130,9 @@ public class MoteListActivity extends Activity implements PacketListListner {
 				break;
 			}
 			if(packet != null){
+				TextView deviceAdr = (TextView) v.findViewById(R.id.device_adr);
+				deviceAdr.setText(packet.getDevice().getAddress());
+				
 				TextView deviceName = (TextView) v.findViewById(R.id.device_name);
 				deviceName.setText("Name: " + packet.getDeviceName());
 				

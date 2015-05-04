@@ -27,6 +27,7 @@ import android.os.PowerManager;
 import android.os.PowerManager.WakeLock;
 import android.util.Log;
 import dk.itu.energyfutures.ble.helpers.BluetoothHelper;
+import dk.itu.energyfutures.ble.helpers.Devices;
 import dk.itu.energyfutures.ble.helpers.GattAttributes;
 import dk.itu.energyfutures.ble.packethandlers.PacketBroadcaster;
 import dk.itu.energyfutures.ble.packethandlers.PacketListListner;
@@ -42,16 +43,16 @@ public class BluetoothLEBackgroundService extends Service implements PacketBroad
 	private BluetoothAdapter btAdapter;
 	private AtomicBoolean isRunnning = new AtomicBoolean(false);
 	private ExecutorService executor;
-	private List<Byte> json = new ArrayList<Byte>();
 	private Map<String,AdvertisementPacket> packets = new LinkedHashMap<String,AdvertisementPacket>();
 	private Set<String> adrHits = new HashSet<String>();
 	private Set<String> bleTasks = new HashSet<String>();
 	private FileWriter fileWriter;
 	private WakeLock wakeLock;
-	private static final long WAIT_BEFORE_BT_CHIP_RESET = 120 * 60 * 1000; //2 HOURS
-	public static final long TIME_TO_RETRY_DISCOVERY = 2 * 60 * 1000; // 2 min
-	private static AtomicBoolean moteFound = new AtomicBoolean(false);
-	
+	private final long SLEEP_BT_CHIP_RESET = getResetTime();
+	private AtomicBoolean moteFound = new AtomicBoolean(false);
+	private AtomicBoolean isResetting = new AtomicBoolean(false);
+	private long timeSinceLastBTReset = System.currentTimeMillis();
+	private boolean doOffLoading = getOffLoadingBoolean();
 	// Device scan callback.
 	private BluetoothAdapter.LeScanCallback mLeScanCallback = new BluetoothAdapter.LeScanCallback() {
 		@Override
@@ -67,13 +68,19 @@ public class BluetoothLEBackgroundService extends Service implements PacketBroad
 								deviceName = "";
 							}else{
 								deviceName = BluetoothHelper.decodeLocalName(scanRecord, result[0], result[1]);
-							}							
+							}	
+							if("NEWBORN".equalsIgnoreCase(deviceName)){
+								return;
+							}
 							result = BluetoothHelper.findIndexOfAdvertisementType(scanRecord, GattAttributes.MANUFACTURER_SPECIFIC_DATA);
 							if (result == null || result.length != 2) return;
 							boolean isITUMote = BluetoothHelper.decodeManufacturerID(scanRecord, result[0]);
 							if (isITUMote && isRunnning.get()) {
 								// We know that the first 2 bytes are for the manufacturer ID... so skip them
 								AdvertisementPacket packet = AdvertisementPacket.processITUAdvertisementValue(scanRecord, result[0] + 2, result[1] - 2, deviceName, device);
+								if(packet == null){
+									return;
+								}
 								packets.put(packet.getId(),packet);
 								for (PacketListListner listner : listners) {
 									listner.newPacketArrived(packet);
@@ -86,11 +93,11 @@ public class BluetoothLEBackgroundService extends Service implements PacketBroad
 									}
 								}	
 								Log.v(TAG, "Packet: " + packet.getId());
-								if (packet.isBufferNeedsCleaning() && isRunnning.get()) {
+								if (packet.isBufferNeedsCleaning() && isRunnning.get() && Application.isDataSink() && doOffLoading ) {
 									Log.i(TAG, "Packet: " + packet);
 									synchronized (bleTasks) {
-										if (!bleTasks.contains(adr)) {
-											if(Application.isDataSink()){
+										if (!bleTasks.contains(adr) && bleTasks.size() == 0) {
+											if(Application.isDataSink() && fileWriter != null){
 												try {
 													fileWriter.append("Off-loading packet: " + packet+"\n" );
 													fileWriter.flush();
@@ -107,7 +114,6 @@ public class BluetoothLEBackgroundService extends Service implements PacketBroad
 											task.registerDoneEmptyingBufferListner(BluetoothLEBackgroundService.this);
 											executor.execute(task);
 										}
-										bleTasks.notify();
 									}
 								}
 							}
@@ -131,6 +137,8 @@ public class BluetoothLEBackgroundService extends Service implements PacketBroad
 			e.printStackTrace();
 		}
 	}
+
+	
 
 	@Override
 	public int onStartCommand(Intent intent, int flags, int startId) {
@@ -173,27 +181,36 @@ public class BluetoothLEBackgroundService extends Service implements PacketBroad
 				wakeLock.acquire();
 			}			
 			if (initialize()) {
-				executor = Executors.newFixedThreadPool(5);
+				executor = Executors.newFixedThreadPool(6);
 				// gattExecutor = Executors.newSingleThreadExecutor();
 				executor.execute(new Runnable() {
-					private long timeSinceLastReset = System.currentTimeMillis();
+					
 					private long timeSinceLastScanReset;
 					@Override
 					public void run() {
 						String myTag = "Ble scanner thread";
 						Log.v(myTag, "Starting fresh");
-						while (isRunnning.get()) {
+						while (isRunnning.get() || isResetting.get()) {
 							try {
-								//Log.v(myTag, "Starting scan");
+								if(isResetting.get()){
+									Thread.sleep(10000);
+									Log.v(myTag, "Found reset flag... sleeping");
+								}
+								int counter = 0;
 								while (!btAdapter.startLeScan(mLeScanCallback)) {
-									Thread.sleep(250);
+									Thread.sleep(1500);
+									if(counter++ > 3){
+										Log.v(myTag, "Could not start le-scan... breaking out");
+										break;
+									}
+									Log.v(myTag, "Could not start le-scan... sleeping");
 								}
 								//Log.v(myTag, "Sleeping while scanning");
 								timeSinceLastScanReset = System.currentTimeMillis();
 								synchronized (adrHits) {
 									adrHits.clear();
 								}	
-								while (!moteFound.get() || ((System.currentTimeMillis() - timeSinceLastScanReset) < 1000)) {
+								while (!moteFound.get() || ((System.currentTimeMillis() - timeSinceLastScanReset) < 1500)) {
 									if (!isRunnning.get()) {
 										break;
 									}
@@ -201,28 +218,11 @@ public class BluetoothLEBackgroundService extends Service implements PacketBroad
 								}
 								moteFound.set(false);
 								btAdapter.stopLeScan(mLeScanCallback);
-								
-								if (Application.isDataSink() && (System.currentTimeMillis() - timeSinceLastReset >= WAIT_BEFORE_BT_CHIP_RESET) && bleTasks.size() == 0) { 
-									if (!isRunnning.get()) {
-										break;
-									}
-									synchronized (bleTasks) {
-										if(bleTasks.size() == 0){
-											Application.showLongToastOnUI("RESETTING BT ADAPTOR");
-											timeSinceLastReset = System.currentTimeMillis();
-											btAdapter.disable();
-											Thread.sleep(5000); // 5 sec
-											btAdapter.enable();
-											isRunnning.set(true);
-										}
-									}
-								}
 							}
-							catch (Exception e) {
+							catch (Throwable e) {
 								if(!(e instanceof InterruptedException)){
 									Log.e(TAG, "Error with scan thread or it has been killed", e);
 								}
-								
 							}
 						}
 					}
@@ -230,10 +230,10 @@ public class BluetoothLEBackgroundService extends Service implements PacketBroad
 				executor.execute(new Runnable() {
 					@Override
 					public void run() {
-						while(isRunnning.get()){
+						while(isRunnning.get() || isResetting.get()){
 							try {
-								Thread.sleep(30 * 1000);//30 sec
-								//Application.showShortToastOnUI("Cleaning old packets");
+								Thread.sleep(60 * 1000);//1 min
+								Application.showShortToastOnUI("Cleaning old packets");
 								List<AdvertisementPacket> deprecated = new ArrayList<AdvertisementPacket>();
 								long time = System.currentTimeMillis();
 								for(AdvertisementPacket packet : packets.values()){
@@ -250,11 +250,53 @@ public class BluetoothLEBackgroundService extends Service implements PacketBroad
 									}
 								}
 							}
-							catch (Exception e) {
+							catch (Throwable e) {
 								if(!(e instanceof InterruptedException)){
 									Log.e(TAG, "Error with deprecator thread or it has been killed", e);
 								}
 							} 
+						}
+					}
+				});
+				executor.execute(new Runnable() {
+					@Override
+					public void run() {
+						while(isRunnning.get() || isResetting.get()){
+							try {
+								if(System.currentTimeMillis() - timeSinceLastBTReset < SLEEP_BT_CHIP_RESET){
+									Thread.sleep(SLEEP_BT_CHIP_RESET);
+								}else{
+									Thread.sleep(1000);
+								}
+								if (Application.isDataSink() && bleTasks.size() == 0) { 
+									if (!isRunnning.get()) {
+										break;
+									}
+									synchronized (bleTasks) {
+										if(bleTasks.size() == 0){
+											isResetting.set(true);
+											isRunnning.set(false);
+											btAdapter.stopLeScan(mLeScanCallback);
+											Application.showLongToastOnUI("RESETTING BT ADAPTOR");
+											Log.i(TAG, "RESETTING BT ADAPTOR");
+											btAdapter.disable();
+											Thread.sleep(10000); // 5 sec
+											while(!btAdapter.enable()){
+												Thread.sleep(1000);
+												Log.i(TAG, "ERROR RESETTING ADAPTOR..sleeping");
+											}
+											isRunnning.set(true);
+											timeSinceLastBTReset = System.currentTimeMillis();
+											isResetting.set(false);
+										}
+									}
+								}
+							}
+							catch (Throwable e) {
+								if(!(e instanceof InterruptedException)){
+									Log.e(TAG, "Error with resetter thread or it has been killed", e);
+								}
+							}
 						}
 					}
 				});
@@ -279,7 +321,7 @@ public class BluetoothLEBackgroundService extends Service implements PacketBroad
 
 	private void shutdownAndCleanup() {
 		isRunnning.set(false);
-		if(Application.isDataSink()){
+		if(Application.isDataSink() && wakeLock != null){
 			wakeLock.release();
 		}
 		btAdapter.stopLeScan(mLeScanCallback);
@@ -341,5 +383,23 @@ public class BluetoothLEBackgroundService extends Service implements PacketBroad
 		synchronized (bleTasks) {
 			bleTasks.remove(adr);
 		}
+	}
+	
+	public static long getResetTime(){
+		String deviceName = Devices.getDeviceName();
+		if(deviceName.equalsIgnoreCase("Asus Nexus 7 (2013)")){
+			Log.v(TAG, "Nexus device found");
+			return 3 * 60 * 1000;
+		}
+		return 120 * 60 * 1000;
+	}
+	
+	private boolean getOffLoadingBoolean() {
+		String deviceName = Devices.getDeviceName();
+		if(deviceName.equalsIgnoreCase("Asus Nexus 7 (2013)")){
+			Log.v(TAG, "Nexus device found");
+			return true;
+		}
+		return false;
 	}
 }
