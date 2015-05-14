@@ -3,8 +3,8 @@ package dk.itu.energyfutures.ble.helpers;
 import java.text.SimpleDateFormat;
 import java.util.UUID;
 
-import dk.itu.energyfutures.ble.AdvertisementPacket;
 import dk.itu.energyfutures.ble.R;
+import dk.itu.energyfutures.ble.packethandlers.AdvertisementPacket;
 
 public class ITUConstants {
 	//0000-1000-8000-00805f9b34fb
@@ -14,7 +14,7 @@ public class ITUConstants {
 
 	public static UUID BLE_UUID_ITU_MEASUREMENT_VALUE_CHAR = UUID.fromString("0000ff00-0000-1000-8000-00805f9b34fb");
 	public static UUID BLE_UUID_ITU_MEASUREMENT_CONFIG_CHAR = UUID.fromString("0000ff01-0000-1000-8000-00805f9b34fb");
-	public static UUID BLE_UUID_ITU_ACTUATOR_COMMAND_CHAR = UUID.fromString("0000ff02-0000-1000-8000-00805f9b34fb");
+	public static UUID BLE_UUID_ITU_ACTUATOR_JSON_COMMAND_CHAR = UUID.fromString("0000ff02-0000-1000-8000-00805f9b34fb");
 	public static UUID BLE_UUID_ITU_ACTUATOR_JSON_CHAR = UUID.fromString("0000ff03-0000-1000-8000-00805f9b34fb");
 	public static UUID BLE_UUID_ITU_READ_ALL_MEASUREMENTS_VALUE_CHAR = UUID.fromString("0000ff04-0000-1000-8000-00805f9b34fb");
 	public static UUID BLE_UUID_ITU_CONFIG_MOTE_CHAR = UUID.fromString("0000ff05-0000-1000-8000-00805f9b34fb");
@@ -22,71 +22,77 @@ public class ITUConstants {
 	public static final SimpleDateFormat dateFormat = new SimpleDateFormat("kk:mm:ss");
 	
 	public static final String DEVICE_IS_A_GATEWAY_KEY = "DEVICE_IS_A_GATEWAY_KEY";
+	public static final String SHOW_ADVANCE_SETTINGS_KEY = "SHOW_ADVANCE_SETTINGS_KEY";
+	public static final String ENABLE_CONFIG_OF_NORMAL_MOTES = "ENABLE_CONFIG_OF_NORMAL_MOTES";
 
-	public static enum ITU_MOTE_COORDINATE {
-		ITS_MEAS_LOCATION_NOT_SET,
-		ITS_MEAS_LOCATION_IN_SOMEWHERE,
-		ITS_MEAS_LOCATION_IN_FLOOR,
-		ITS_MEAS_LOCATION_IN_MIDDLE,
-		ITS_MEAS_LOCATION_IN_CEILING,
-		ITS_MEAS_LOCATION_OUT
+	public static enum ITU_SENSOR_COORDINATE {
+		LOCATION_NOT_SET,
+		LOCATION_IN_SOMEWHERE,
+		LOCATION_IN_FLOOR,
+		LOCATION_IN_MIDDLE,
+		LOCATION_IN_CEILING,
+		LOCATION_OUT
 	}
 
-	public static final ITU_MOTE_COORDINATE[] ITU_MOTE_COORDINATE_ARRAY = ITU_MOTE_COORDINATE.values();
+	public static final ITU_SENSOR_COORDINATE[] ITU_SENSOR_COORDINATE_ARRAY = ITU_SENSOR_COORDINATE.values();
 
 	// BLE_UUID_ITU_SENSOR_TYPE_HUMIDITY,
 	public static enum ITU_SENSOR_TYPE {
-		BLE_UUID_ITU_SENSOR_TYPE_NOT_SET,
-		BLE_UUID_ITU_SENSOR_TYPE_TEMPERATURE,
-		BLE_UUID_ITU_SENSOR_TYPE_LIGHT,
-		BLE_UUID_ITU_SENSOR_TYPE_SOUND,
-		BLE_UUID_ITU_SENSOR_TYPE_HUMIDITY,
-		BLE_UUID_ITU_SENSOR_TYPE_MOTION,
-		BLE_UUID_ITU_ACTUATOR_TYPE_NOT_SET,
-		BLE_UUID_ITU_ACTUATOR_TYPE_WINDOW, 
-		BLE_UUID_ITU_ACTUATOR_TYPE_AC,
-		BLE_UUID_ITU_SENSOR_TYPE_AMPERE
+		NOT_SET,
+		TEMPERATURE,
+		LIGHT,
+		SOUND,
+		HUMIDITY,
+		MOTION,
+		ACTUATOR_TYPE_NOT_SET,
+		WINDOW, 
+		AC,
+		AMPERE,
+		JSON
 	}
 
 	public static final ITU_SENSOR_TYPE[] ITU_SENSOR_TYPE_ARRAY = ITU_SENSOR_TYPE.values();
 
 	public static enum ITU_SENSOR_MAKE {
-		BLE_UUID_ITU_SENSOR_MAKE_NOT_SET,
-		BLE_UUID_ITU_SENSOR_MAKE_DHT22, 
-		BLE_UUID_ITU_SENSOR_MAKE_TMP36,
-		BLE_UUID_ITU_SENSOR_MAKE_LMT85,
-		BLE_UUID_ITU_SENSOR_MAKE_TSL2561,
-		BLE_UUID_ITU_SENSOR_MAKE_SI7021,
-		BLE_UUID_ITU_SENSOR_MAKE_EKMB1303112,
-		BLE_UUID_ITU_ACTUATOR_MAKE_NOT_SET,
-		BLE_UUID_ITU_ACTUATOR_MAKE_SSD_RELAY,
-		BLE_UUID_ITU_ACTUATOR_MAKE_BISTABLE_RELAY,
-		BLE_UUID_ITU_ACTUATOR_MAKE_MECH_RELAY,
-		BLE_UUID_ITU_SENSOR_MAKE_ACS712_5A
+		NOT_SET,
+		DHT22, 
+		TMP36,
+		LMT85,
+		TSL2561,
+		SI7021,
+		EKMB1303112,
+		ACTUATOR_MAKE_NOT_SET,
+		SSD_RELAY,
+		BISTABLE_RELAY,
+		MECH_RELAY,
+		ACS712_5A,
+		ACS712_20A
 	}
+	
+	public static final ITU_SENSOR_MAKE[] ITU_SENSOR_MAKE_ARRAY = ITU_SENSOR_MAKE.values();
 
 	public static enum ITU_SENSOR_CONFIG_TYPE {
-		BLE_UUID_ITU_SENSOR_TYPE,
-		BLE_UUID_ITU_ACTUATOR_TYPE
+		SENSOR_TYPE,
+		ACTUATOR_TYPE
 	}
 
 	public static final ITU_SENSOR_CONFIG_TYPE[] ITU_SENSOR_CONFIG_TYPE_ARRAY = ITU_SENSOR_CONFIG_TYPE.values();
 
 	public static String getCoordinateStringFromEnum(AdvertisementPacket advertisementPacket) {
-		if (ITU_SENSOR_TYPE.BLE_UUID_ITU_ACTUATOR_TYPE_WINDOW.equals(advertisementPacket.getSensorType())) {
+		if (ITU_SENSOR_TYPE.WINDOW.equals(advertisementPacket.getSensorType())) {
 			return "";
 		}
-		ITU_MOTE_COORDINATE coordinate = advertisementPacket.getCoordinate();
+		ITU_SENSOR_COORDINATE coordinate = advertisementPacket.getCoordinate();
 		switch (coordinate) {
-		case ITS_MEAS_LOCATION_IN_SOMEWHERE:
+		case LOCATION_IN_SOMEWHERE:
 			return "IN|SOMEWHERE";
-		case ITS_MEAS_LOCATION_IN_FLOOR:
+		case LOCATION_IN_FLOOR:
 			return "IN|FLOOR";
-		case ITS_MEAS_LOCATION_IN_MIDDLE:
+		case LOCATION_IN_MIDDLE:
 			return "IN|MIDDLE";
-		case ITS_MEAS_LOCATION_IN_CEILING:
+		case LOCATION_IN_CEILING:
 			return "IN|CEILING";
-		case ITS_MEAS_LOCATION_OUT:
+		case LOCATION_OUT:
 			return "OUTSIDE";
 		default:
 			return "NOT SET";
@@ -94,11 +100,11 @@ public class ITUConstants {
 	}
 
 	public static String getValueStringFromEnum(AdvertisementPacket advertisementPacket) {
-		if (ITU_SENSOR_TYPE.BLE_UUID_ITU_ACTUATOR_TYPE_WINDOW.equals(advertisementPacket.getSensorType())) {
+		if (ITU_SENSOR_TYPE.WINDOW.equals(advertisementPacket.getSensorType())) {
 			return "";
 		}
 
-		if (ITU_SENSOR_TYPE.BLE_UUID_ITU_ACTUATOR_TYPE_AC.equals(advertisementPacket.getSensorType())) {
+		if (ITU_SENSOR_TYPE.AC.equals(advertisementPacket.getSensorType())) {
 			return advertisementPacket.getValue() > 0 ? "ON" : "OFF";
 		}
 		double value = advertisementPacket.getValue();
@@ -109,22 +115,30 @@ public class ITUConstants {
 	}
 
 	public static int findIconBySensorType(AdvertisementPacket advertisementPacket) {
-		switch (advertisementPacket.getSensorType()) {
-		case BLE_UUID_ITU_SENSOR_TYPE_TEMPERATURE:
+		return findIconBySensorType(advertisementPacket.getSensorType());
+	}
+	
+	public static int findIconBySensorType(int typeIndex) {
+		return findIconBySensorType(ITU_SENSOR_TYPE_ARRAY[typeIndex]);
+	}
+	
+	private static int findIconBySensorType(ITU_SENSOR_TYPE type) {
+		switch (type) {
+		case TEMPERATURE:
 			return R.drawable.temp_icon;
-		case BLE_UUID_ITU_SENSOR_TYPE_LIGHT:
+		case LIGHT:
 			return R.drawable.light_icon;
-		case BLE_UUID_ITU_SENSOR_TYPE_SOUND:
+		case SOUND:
 			return R.drawable.sound_icon;
-		case BLE_UUID_ITU_SENSOR_TYPE_HUMIDITY:
+		case HUMIDITY:
 			return R.drawable.humidity_icon;
-		case BLE_UUID_ITU_SENSOR_TYPE_MOTION:
+		case MOTION:
 			return R.drawable.motion_icon;
-		case BLE_UUID_ITU_ACTUATOR_TYPE_AC:
+		case AC:
 			return R.drawable.ac_icon;
-		case BLE_UUID_ITU_ACTUATOR_TYPE_WINDOW:
+		case WINDOW:
 			return R.drawable.window_icon;
-		case BLE_UUID_ITU_SENSOR_TYPE_AMPERE:
+		case AMPERE:
 			return R.drawable.current_icon;
 		default:
 			return R.drawable.unknown_icon;

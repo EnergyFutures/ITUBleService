@@ -8,12 +8,21 @@
           android:title="Exit"
           android:orderInCategory="2"
           android:showAsAction="ifRoom|withText"/>
-    <item android:id="@+id/main_mote_view"
+    
+     <item android:id="@+id/main_toggle_advance_settings"
+          android:title="Toggle Advance_settings Flag"
+          android:orderInCategory="4"
+          android:showAsAction="withText|never"/>
+     <item android:id="@+id/main_mote_view"
           android:title="Mote View"
           android:orderInCategory="3"
           android:showAsAction="withText|never"/>
     <item android:id="@+id/main_toggle_data_sink"
           android:title="Toggle DataSink Flag"
-          android:orderInCategory="4"
+          android:orderInCategory="5"
+          android:showAsAction="withText|never"/>
+     <item android:id="@+id/main_toggle_config_mote"
+          android:title="Toggle config Flag"
+          android:orderInCategory="6"
           android:showAsAction="withText|never"/>
 </menu>

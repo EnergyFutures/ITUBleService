@@ -19,23 +19,26 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.Window;
 import android.widget.BaseAdapter;
 import android.widget.Button;
 import android.widget.GridView;
 import android.widget.ImageView;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
-import dk.itu.energyfutures.ble.AdvertisementPacket;
 import dk.itu.energyfutures.ble.Application;
 import dk.itu.energyfutures.ble.BluetoothLEBackgroundService;
 import dk.itu.energyfutures.ble.BluetoothLEBackgroundService.LocalBinder;
 import dk.itu.energyfutures.ble.R;
 import dk.itu.energyfutures.ble.helpers.ITUConstants;
+import dk.itu.energyfutures.ble.packethandlers.AdvertisementPacket;
 import dk.itu.energyfutures.ble.packethandlers.PacketListListner;
 import dk.itu.energyfutures.ble.task.ActuationTask;
+import dk.itu.energyfutures.ble.task.EmptyingBufferListner;
+import dk.itu.energyfutures.ble.task.JSONTask;
 import dk.itu.energyfutures.ble.task.WindowTask;
 
-public class LocationActivity extends Activity implements PacketListListner {
+public class LocationActivity extends Activity implements PacketListListner, EmptyingBufferListner {
 	private final static String TAG = LocationActivity.class.getSimpleName();
 	public static final String MOTE_LOCATION = "MOTE.LOCATION";
 	private List<AdvertisementPacket> packets = new ArrayList<AdvertisementPacket>();
@@ -49,6 +52,7 @@ public class LocationActivity extends Activity implements PacketListListner {
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+		requestWindowFeature(Window.FEATURE_INDETERMINATE_PROGRESS);
 		setContentView(R.layout.location_view);
 		GridView gv = (GridView) findViewById(R.id.gridView1);
 		gv.setAdapter(gridAdapter);
@@ -76,7 +80,8 @@ public class LocationActivity extends Activity implements PacketListListner {
 	protected void onDestroy() {
 		super.onDestroy();
 		if (bound) {
-			service.removeListner(this);
+			service.removePacketListner(this);
+			service.unregisterEmptypingListner(this);
 			unbindService(connection);
 		}
 	}
@@ -85,6 +90,7 @@ public class LocationActivity extends Activity implements PacketListListner {
 	protected void onResume() {
 		super.onResume();
 		refreshList();
+		setProgressBarIndeterminateVisibility(Application.emptyingBuffer);
 	}
 
 	private ServiceConnection connection = new ServiceConnection() {
@@ -94,7 +100,8 @@ public class LocationActivity extends Activity implements PacketListListner {
 			// We've bound to LocalService, cast the IBinder and get LocalService instance
 			LocalBinder binder = (LocalBinder) iBinder;
 			service = binder.getService();
-			service.registerListner(LocationActivity.this);
+			service.registerPacketListner(LocationActivity.this);
+			service.registerEmptypingListner(LocationActivity.this);
 			bound = true;
 			refreshList();
 			gridAdapter.notifyDataSetChanged();
@@ -110,7 +117,7 @@ public class LocationActivity extends Activity implements PacketListListner {
 	private void refreshList() {
 		if (bound) {
 			packets.clear();
-			Collection<AdvertisementPacket> allPackets = service.getPackets();
+			Collection<AdvertisementPacket> allPackets = service.getPackets().values();
 			for (AdvertisementPacket packet : allPackets) {
 				if (location.equalsIgnoreCase(packet.getLocation())) {
 					packets.add(packet);
@@ -144,66 +151,67 @@ public class LocationActivity extends Activity implements PacketListListner {
 			if (v == null) {
 				v = (RelativeLayout) getLayoutInflater().inflate(R.layout.sensor_container_layout, null);
 				v.setClickable(true);
-				if(!Application.isDataSink()){
-					v.setOnClickListener(new View.OnClickListener() {
-						@Override
-						public void onClick(View v) {
-							if (v != null && v.getTag() != null) {
-								final AdvertisementPacket packet = (AdvertisementPacket) v.getTag();
-								if (ITUConstants.ITU_SENSOR_TYPE.BLE_UUID_ITU_ACTUATOR_TYPE_AC.equals(packet.getSensorType())) {
-									final ProgressDialog dialog = ProgressDialog.show(LocationActivity.this, "Please wait", "Connecting...", true, false);
-									new ActuationTask(packet, dialog, LocationActivity.this,service).execute(null, null);
-								} else if (ITUConstants.ITU_SENSOR_TYPE.BLE_UUID_ITU_ACTUATOR_TYPE_WINDOW.equals(packet.getSensorType())) {
-									final WindowTask task = new WindowTask(packet, LocationActivity.this,service);
-									Builder builder = new AlertDialog.Builder(LocationActivity.this);
-									builder.setTitle("Window Control");
-									builder.setMessage("Please wait, connecting...");
-									builder.setPositiveButton("Close", null);
-									builder.setNegativeButton("Open", null);
-									builder.setNeutralButton("Stop", null);
-									builder.setOnDismissListener(new DialogInterface.OnDismissListener() {
-										@Override
-										public void onDismiss(DialogInterface dialog) {
-											task.dismissed();
-										}
-									});
-									final AlertDialog dialog = builder.create();
-									dialog.setCanceledOnTouchOutside(true);
-									dialog.setOnShowListener(new DialogInterface.OnShowListener() {
+				v.setOnClickListener(new View.OnClickListener() {
+					@Override
+					public void onClick(View v) {
+						if (v != null && v.getTag() != null) {
+							final AdvertisementPacket packet = (AdvertisementPacket) v.getTag();
+							if (ITUConstants.ITU_SENSOR_TYPE.AC.equals(packet.getSensorType())) {
+								final ProgressDialog dialog = ProgressDialog.show(LocationActivity.this, "Please wait", "Connecting...", true, false);
+								new ActuationTask(packet, dialog, LocationActivity.this, service).execute(null, null);
+							} else if (ITUConstants.ITU_SENSOR_TYPE.WINDOW.equals(packet.getSensorType())) {
+								final WindowTask task = new WindowTask(packet, LocationActivity.this, service);
+								Builder builder = new AlertDialog.Builder(LocationActivity.this);
+								builder.setTitle("Window Control");
+								builder.setMessage("Please wait, connecting...");
+								builder.setPositiveButton("Close", null);
+								builder.setNegativeButton("Open", null);
+								builder.setNeutralButton("Stop", null);
+								builder.setOnDismissListener(new DialogInterface.OnDismissListener() {
+									@Override
+									public void onDismiss(DialogInterface dialog) {
+										task.dismissed();
+									}
+								});
+								final AlertDialog dialog = builder.create();
+								dialog.setCanceledOnTouchOutside(true);
+								dialog.setOnShowListener(new DialogInterface.OnShowListener() {
 
-										@Override
-										public void onShow(DialogInterface dialogI) {
-											Button open = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
-											open.setOnClickListener(new View.OnClickListener() {
-												@Override
-												public void onClick(View v) {
-													task.closeWindow();
-												}
-											});
-											Button close = dialog.getButton(AlertDialog.BUTTON_NEGATIVE);
-											close.setOnClickListener(new View.OnClickListener() {
-												@Override
-												public void onClick(View v) {
-													task.openWindow();
-												}
-											});
-											Button stop = dialog.getButton(AlertDialog.BUTTON_NEUTRAL);
-											stop.setOnClickListener(new View.OnClickListener() {
-												@Override
-												public void onClick(View v) {
-													task.stopWindow();
-												}
-											});
-										}
-									});
-									task.setDialog(dialog);
-									task.execute(null, null);
-									dialog.show();
-								}
+									@Override
+									public void onShow(DialogInterface dialogI) {
+										Button open = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+										open.setOnClickListener(new View.OnClickListener() {
+											@Override
+											public void onClick(View v) {
+												task.closeWindow();
+											}
+										});
+										Button close = dialog.getButton(AlertDialog.BUTTON_NEGATIVE);
+										close.setOnClickListener(new View.OnClickListener() {
+											@Override
+											public void onClick(View v) {
+												task.openWindow();
+											}
+										});
+										Button stop = dialog.getButton(AlertDialog.BUTTON_NEUTRAL);
+										stop.setOnClickListener(new View.OnClickListener() {
+											@Override
+											public void onClick(View v) {
+												task.stopWindow();
+											}
+										});
+									}
+								});
+								task.setDialog(dialog);
+								task.execute(null, null);
+								dialog.show();
+							} else if (ITUConstants.ITU_SENSOR_TYPE.JSON.equals(packet.getSensorType())) {
+								final ProgressDialog dialog = ProgressDialog.show(LocationActivity.this, "Please wait", "Connecting...", true, false);
+								new JSONTask(packet, dialog, LocationActivity.this, service).execute(null, null);
 							}
 						}
-					});
-				}
+					}
+				});
 			}
 			ImageView im = (ImageView) v.findViewById(R.id.imageView);
 			im.setImageResource(ITUConstants.findIconBySensorType(advertisementPacket));
@@ -222,14 +230,14 @@ public class LocationActivity extends Activity implements PacketListListner {
 				vt.setText(value);
 				vt.setVisibility(View.VISIBLE);
 			}
-			if (ITUConstants.ITU_SENSOR_CONFIG_TYPE.BLE_UUID_ITU_ACTUATOR_TYPE.equals(advertisementPacket.getSensorConfigType())) {
+			if (ITUConstants.ITU_SENSOR_CONFIG_TYPE.ACTUATOR_TYPE.equals(advertisementPacket.getSensorConfigType())) {
 				v.setBackgroundColor(actuationColor);
-				vt.setText(vt.getText()+"|"+advertisementPacket.getDeviceName());
+				vt.setText(vt.getText() + "|" + advertisementPacket.getDeviceName());
 			} else {
 				v.setBackgroundColor(defaultColor);
 			}
-			if(ITUConstants.ITU_SENSOR_TYPE.BLE_UUID_ITU_SENSOR_TYPE_AMPERE.equals(advertisementPacket.getSensorType())){
-				vt.setText(vt.getText()+"|"+advertisementPacket.getDeviceName());
+			if (ITUConstants.ITU_SENSOR_TYPE.AMPERE.equals(advertisementPacket.getSensorType())) {
+				vt.setText(vt.getText() + "|" + advertisementPacket.getDeviceName());
 			}
 			TextView ts = (TextView) v.findViewById(R.id.timestamp);
 			ts.setText(ITUConstants.dateFormat.format(advertisementPacket.getTimeStamp()));
@@ -248,17 +256,17 @@ public class LocationActivity extends Activity implements PacketListListner {
 	}
 
 	@Override
-	public void newPacketArrived(AdvertisementPacket packet) {
+	public void newPacketArrived(final AdvertisementPacket packet) {
 		if (location.equalsIgnoreCase(packet.getLocation())) {
-			int index = packets.indexOf(packet);
-			if (index >= 0) {
-				packets.set(index, packet);
-			} else {
-				packets.add(packet);
-			}
 			this.runOnUiThread(new Runnable() {
 				@Override
 				public void run() {
+					int index = packets.indexOf(packet);
+					if (index >= 0) {
+						packets.set(index, packet);
+					} else {
+						packets.add(packet);
+					}
 					gridAdapter.notifyDataSetChanged();
 				}
 			});
@@ -296,21 +304,32 @@ public class LocationActivity extends Activity implements PacketListListner {
 	}
 
 	@Override
-	public void PacketsDeprecated(List<AdvertisementPacket> deprecatedPackets) {
-		boolean didDeprecation = false;
-		for(AdvertisementPacket packet : deprecatedPackets){
-			if(packets.contains(packet)){
-				didDeprecation = true;
-				packets.remove(packet);
-			}
-		}
-		if(didDeprecation){
-			this.runOnUiThread(new Runnable() {
-				@Override
-				public void run() {
+	public void PacketsDeprecated(final List<AdvertisementPacket> deprecatedPackets) {
+
+		this.runOnUiThread(new Runnable() {
+			@Override
+			public void run() {
+				boolean didDeprecation = false;
+				for (AdvertisementPacket packet : deprecatedPackets) {
+					if (packets.contains(packet)) {
+						didDeprecation = true;
+						packets.remove(packet);
+					}
+				}
+				if (didDeprecation) {
 					gridAdapter.notifyDataSetChanged();
 				}
-			});
-		}
+			}
+		});
+	}
+
+	@Override
+	public void emptyingBufferStateChanged() {
+		this.runOnUiThread(new Runnable() {
+			@Override
+			public void run() {
+				setProgressBarIndeterminateVisibility(Application.emptyingBuffer);
+			}
+		});
 	}
 }

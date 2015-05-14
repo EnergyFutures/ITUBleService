@@ -1,7 +1,18 @@
 package dk.itu.energyfutures.ble.task;
 
+import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Properties;
+
+import javax.mail.Message;
+import javax.mail.MessagingException;
+import javax.mail.PasswordAuthentication;
+import javax.mail.Session;
+import javax.mail.Transport;
+import javax.mail.internet.AddressException;
+import javax.mail.internet.InternetAddress;
+import javax.mail.internet.MimeMessage;
 
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
@@ -15,14 +26,15 @@ import android.util.Log;
 import dk.itu.energyfutures.ble.Application;
 import dk.itu.energyfutures.ble.helpers.GattAttributes;
 import dk.itu.energyfutures.ble.helpers.ITUConstants;
+import dk.itu.energyfutures.ble.smap.SMAPController;
 
-public class EmptyBufferTask implements Runnable, DoneEmptyingBufferNotifer {
+public class EmptyBufferTask implements Runnable, TaskDoneNotifer {
 	private final static String TAG = EmptyBufferTask.class.getSimpleName();
 	private BluetoothDevice device;
 	private BluetoothGattDescriptor readAllDescriptor;
 	private BluetoothGattCharacteristic readAllChar;
 	private Context context;
-	private List<DoneEmptyingBufferListner> doneEmptyingBufferListners = new ArrayList<DoneEmptyingBufferListner>();
+	private List<TaskDoneListner> doneEmptyingBufferListners = new ArrayList<TaskDoneListner>();
 	private boolean done;
 	private int pointer = 0;
 	private byte[] values = new byte[55000];
@@ -42,40 +54,94 @@ public class EmptyBufferTask implements Runnable, DoneEmptyingBufferNotifer {
 	@Override
 	public void run() {
 		device.connectGatt(context, false, gattCallback);
-		
 		Thread thisThread = Thread.currentThread();
 		try {
 			while (!done) {
 				if(System.currentTimeMillis() - timeOfLastActivity > WAIT_TIME){
-					throw new IllegalStateException("We timed out");
+					break;
 				}else if(thisThread.isInterrupted()){
-					throw new IllegalStateException("We were interrupted");
+					break;
 				}
 				Thread.sleep(THREAD_SLEEP);
 			}
+			if((pointer % 8) != 0){
+				Log.e(TAG,"READINGS MALFORMED");
+			}else{
+				SMAPController.postReadingsToSmap(values, pointer);
+				Log.i(TAG,"SENDING E_MAIL");
+				StringBuffer sb = new StringBuffer();
+				sb.append("Device: " + device.getAddress());
+				sb.append("\nName: " + device.getName());
+				sb.append("\nNumber of values: " + (pointer / 8));
+				while(SMAPController.payload == null){
+					
+				}
+				sb.append("\nPayload: " + SMAPController.payload);
+				SMAPController.payload = null;
+				sendMail(sb.toString());
+				Log.i(TAG,"E_MAIL SENT");
+			}
+			closeDown("Done... disconnecting");
 		}
 		catch (Exception e) {
-			if(bleGatt != null){
-				bleGatt.disconnect();
-			}	
-			
+			closeDown("Exception handled... disconnecting");
 		}finally{
-			if(bleGatt != null){
-				try {
-					Thread.sleep(250);
-				}
-				catch (InterruptedException b) {
-					b.printStackTrace();
-				}
-				bleGatt.close();
-			}	
-			for (DoneEmptyingBufferListner listner : doneEmptyingBufferListners) {
-				listner.onDoneEmptyingBuffer(device.getAddress());
+			for (TaskDoneListner listner : doneEmptyingBufferListners) {
+				listner.onTaskDone(device.getAddress());
 			}	
 			Log.v(TAG, "Number of received  bytes: " + pointer);
 		}
 	}
+	
+	private void closeDown(String msg) {
+		if (bleGatt != null) {
+			bleGatt.disconnect();
+			Log.v(TAG, msg);
+			try {
+				Thread.sleep(250);
+			}
+			catch (InterruptedException ex) {}
+			bleGatt.close();
+		}
+	}
 
+	private Session createSessionObject() {
+	    Properties properties = new Properties();
+	    properties.put("mail.smtp.auth", "true");
+	    properties.put("mail.smtp.starttls.enable", "true");
+	    properties.put("mail.smtp.host", "smtp.gmail.com");
+	    properties.put("mail.smtp.port", "587");
+	 
+	    return Session.getInstance(properties, new javax.mail.Authenticator() {
+	        protected PasswordAuthentication getPasswordAuthentication() {
+	            return new PasswordAuthentication("bleot.4d21@gmail.com", "Zaq12wsx12");
+	        }
+	    });
+	}
+	
+	private Message createMessage(String subject, String messageBody, Session session) throws MessagingException, UnsupportedEncodingException {
+	    Message message = new MimeMessage(session);
+	    message.setFrom(new InternetAddress("bleot.4d21@gmail.com", "ITU 4D21"));
+	    message.addRecipient(Message.RecipientType.TO, new InternetAddress("bleot.4d21@gmail.com", "ITU 4D21"));
+	    message.setSubject(subject);
+	    message.setText(messageBody);
+	    return message;
+	}
+	
+	private void sendMail(String messageBody) {
+	    Session session = createSessionObject();
+	    try {
+	        Message message = createMessage("OFF-LOADING", messageBody, session);
+	        Transport.send(message);
+	    } catch (AddressException e) {
+	        e.printStackTrace();
+	    } catch (MessagingException e) {
+	        e.printStackTrace();
+	    } catch (UnsupportedEncodingException e) {
+	        e.printStackTrace();
+	    }
+	}
+	
 	private final BluetoothGattCallback gattCallback = new BluetoothGattCallback() {
 		@Override
 		public void onConnectionStateChange(final BluetoothGatt gatt, int status, int newState) {
@@ -189,7 +255,7 @@ public class EmptyBufferTask implements Runnable, DoneEmptyingBufferNotifer {
 	}
 
 	@Override
-	public void registerDoneEmptyingBufferListner(DoneEmptyingBufferListner listner) {
+	public void registerTaskDoneListner(TaskDoneListner listner) {
 		doneEmptyingBufferListners.add(listner);
 	}
 }

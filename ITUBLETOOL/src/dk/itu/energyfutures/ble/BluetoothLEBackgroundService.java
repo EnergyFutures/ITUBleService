@@ -1,10 +1,7 @@
 package dk.itu.energyfutures.ble;
 
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collection;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -29,12 +26,20 @@ import android.util.Log;
 import dk.itu.energyfutures.ble.helpers.BluetoothHelper;
 import dk.itu.energyfutures.ble.helpers.Devices;
 import dk.itu.energyfutures.ble.helpers.GattAttributes;
+import dk.itu.energyfutures.ble.helpers.ITUConstants;
+import dk.itu.energyfutures.ble.helpers.ITUConstants.ITU_SENSOR_CONFIG_TYPE;
+import dk.itu.energyfutures.ble.helpers.ITUConstants.ITU_SENSOR_COORDINATE;
+import dk.itu.energyfutures.ble.helpers.ITUConstants.ITU_SENSOR_TYPE;
+import dk.itu.energyfutures.ble.packethandlers.AdvertisementPacket;
 import dk.itu.energyfutures.ble.packethandlers.PacketBroadcaster;
 import dk.itu.energyfutures.ble.packethandlers.PacketListListner;
-import dk.itu.energyfutures.ble.task.DoneEmptyingBufferListner;
 import dk.itu.energyfutures.ble.task.EmptyBufferTask;
+import dk.itu.energyfutures.ble.task.EmptyingBufferListner;
+import dk.itu.energyfutures.ble.task.EmptyingBufferNotifer;
+import dk.itu.energyfutures.ble.task.ParseJsonMoteTask;
+import dk.itu.energyfutures.ble.task.TaskDoneListner;
 
-public class BluetoothLEBackgroundService extends Service implements PacketBroadcaster, DoneEmptyingBufferListner {
+public class BluetoothLEBackgroundService extends Service implements PacketBroadcaster, TaskDoneListner, EmptyingBufferNotifer {
 	private final static String TAG = BluetoothLEBackgroundService.class.getSimpleName();
 
 	protected static final String NEW_PACKET = "NEW_ADV_PACKET";
@@ -43,16 +48,18 @@ public class BluetoothLEBackgroundService extends Service implements PacketBroad
 	private BluetoothAdapter btAdapter;
 	private AtomicBoolean isRunnning = new AtomicBoolean(false);
 	private ExecutorService executor;
-	private Map<String,AdvertisementPacket> packets = new LinkedHashMap<String,AdvertisementPacket>();
-	private Set<String> adrHits = new HashSet<String>();
+	private Map<String, AdvertisementPacket> packets = new LinkedHashMap<String, AdvertisementPacket>();
+	private Map<String, AdvertisementPacket> newBornPackets = new LinkedHashMap<String, AdvertisementPacket>();
+	private Set<String> jsonAdr = new HashSet<String>();
 	private Set<String> bleTasks = new HashSet<String>();
-	private FileWriter fileWriter;
 	private WakeLock wakeLock;
 	private final long SLEEP_BT_CHIP_RESET = getResetTime();
 	private AtomicBoolean moteFound = new AtomicBoolean(false);
 	private AtomicBoolean isResetting = new AtomicBoolean(false);
 	private long timeSinceLastBTReset = System.currentTimeMillis();
-	private boolean doOffLoading = getOffLoadingBoolean();
+	//private boolean doOffLoading = getOffLoadingBoolean();
+	private List<EmptyingBufferListner> emptyingBufferListners = new ArrayList<EmptyingBufferListner>();
+	public static AtomicBoolean toggle = new AtomicBoolean(false);
 	// Device scan callback.
 	private BluetoothAdapter.LeScanCallback mLeScanCallback = new BluetoothAdapter.LeScanCallback() {
 		@Override
@@ -61,72 +68,104 @@ public class BluetoothLEBackgroundService extends Service implements PacketBroad
 				executor.execute(new Runnable() {
 					@Override
 					public void run() {
-						if (isRunnning.get()) {
-							int[] result = BluetoothHelper.findIndexOfAdvertisementType(scanRecord, GattAttributes.SHORTENED_LOCAL_NAME);
-							final String deviceName;
-							if (result == null || result.length != 2){
-								deviceName = "";
-							}else{
-								deviceName = BluetoothHelper.decodeLocalName(scanRecord, result[0], result[1]);
-							}	
-							if("NEWBORN".equalsIgnoreCase(deviceName)){
-								return;
-							}
-							result = BluetoothHelper.findIndexOfAdvertisementType(scanRecord, GattAttributes.MANUFACTURER_SPECIFIC_DATA);
-							if (result == null || result.length != 2) return;
-							boolean isITUMote = BluetoothHelper.decodeManufacturerID(scanRecord, result[0]);
-							if (isITUMote && isRunnning.get()) {
-								// We know that the first 2 bytes are for the manufacturer ID... so skip them
-								AdvertisementPacket packet = AdvertisementPacket.processITUAdvertisementValue(scanRecord, result[0] + 2, result[1] - 2, deviceName, device);
-								if(packet == null){
-									return;
-								}
-								packets.put(packet.getId(),packet);
-								for (PacketListListner listner : listners) {
-									listner.newPacketArrived(packet);
-								}
+						try {
+							if (isRunnning.get()) {
+								int[] result = BluetoothHelper.findIndexOfAdvertisementType(scanRecord, GattAttributes.SHORTENED_LOCAL_NAME);
+								final String deviceName;
 								String adr = device.getAddress();
-								synchronized (adrHits) {
-									if(!adrHits.contains(adr)){
-										adrHits.add(adr);
-										moteFound.set(true);
+								if (result == null || result.length != 2) {
+									deviceName = "";
+								} else {
+									deviceName = BluetoothHelper.decodeLocalName(scanRecord, result[0], result[1]);
+								}
+								result = BluetoothHelper.findIndexOfAdvertisementType(scanRecord, GattAttributes.MANUFACTURER_SPECIFIC_DATA);
+								if (result == null || result.length != 2) return;
+								boolean isITUMote = BluetoothHelper.decodeManufacturerID(scanRecord, result[0]);
+								if (isITUMote && isRunnning.get()) {
+									// We know that the first 2 bytes are for the manufacturer ID... so skip them
+									AdvertisementPacket packet = AdvertisementPacket.processITUAdvertisementValue(scanRecord, result[0] + 2, result[1] - 2, deviceName, device);
+									if (packet == null) {
+										Log.i(TAG, "NULL PACKET");
+										return;
 									}
-								}	
-								Log.v(TAG, "Packet: " + packet.getId());
-								if (packet.isBufferNeedsCleaning() && isRunnning.get() && Application.isDataSink() && doOffLoading ) {
-									Log.i(TAG, "Packet: " + packet);
-									synchronized (bleTasks) {
-										if (!bleTasks.contains(adr) && bleTasks.size() == 0) {
-											if(Application.isDataSink() && fileWriter != null){
-												try {
-													fileWriter.append("Off-loading packet: " + packet+"\n" );
-													fileWriter.flush();
-												}
-												catch (IOException e) {
-													// TODO Auto-generated catch block
-													e.printStackTrace();
+									// Log.i(TAG, "Packet: " + packet);
+									if (ITUConstants.ITU_SENSOR_TYPE.JSON.equals(packet.getSensorType())) {
+										Log.v(TAG, "MULTI ACT");
+										synchronized (jsonAdr) {
+											if (!jsonAdr.contains(adr)) {
+												synchronized (bleTasks) {
+													if (!bleTasks.contains(adr) && bleTasks.size() == 0) {
+														ParseJsonMoteTask task = new ParseJsonMoteTask();
+														task.setDevice(packet.getDevice());
+														task.setContext(getApplicationContext());
+														bleTasks.add(adr);
+														task.registerTaskDoneListner(BluetoothLEBackgroundService.this);
+														executor.execute(task);
+														jsonAdr.add(adr);
+													}
 												}
 											}
-											EmptyBufferTask task = new EmptyBufferTask();
-											task.setDevice(packet.getDevice());
-											task.setContext(getApplicationContext());
-											bleTasks.add(adr);
-											task.registerDoneEmptyingBufferListner(BluetoothLEBackgroundService.this);
-											executor.execute(task);
+										}
+										packet = new AdvertisementPacket();
+										packet.setId("50000");
+										packet.setBufferLevel(0);
+										packet.setBufferNeedsCleaning(false);
+										packet.setBatteryLevel(100);
+										packet.setCoordinate(ITU_SENSOR_COORDINATE.LOCATION_IN_SOMEWHERE);
+										packet.setDevice(device);
+										packet.setDeviceName(deviceName);
+										packet.setLocation("4D21");
+										packet.setSensorConfigType(ITU_SENSOR_CONFIG_TYPE.ACTUATOR_TYPE);
+										packet.setSensorType(ITU_SENSOR_TYPE.JSON);
+										packet.setValue(toggle.get() ? 1 : 0);
+										packet.timeStamp = new Date();
+
+									}
+									if("NEWBORN".equals(deviceName)){
+										newBornPackets.put(packet.getDeviceAdr(), packet);
+										for (PacketListListner listner : newBornlistners) {
+											listner.newPacketArrived(packet);
+										}
+										moteFound.set(true);
+										Log.v(TAG, "NEWBORN Packet id: " + packet.getId());
+										return;
+									}
+									packets.put(packet.getId(), packet);
+									for (PacketListListner listner : listners) {
+										listner.newPacketArrived(packet);
+									}
+									moteFound.set(true);
+									Log.v(TAG, "Packet id: " + packet.getId());
+									if (packet.isBufferNeedsCleaning() && isRunnning.get() && Application.isDataSink()) {
+										Log.i(TAG, "Packet: " + packet);
+										synchronized (bleTasks) {
+											if (!bleTasks.contains(adr) && bleTasks.size() == 0) {
+												EmptyBufferTask task = new EmptyBufferTask();
+												task.setDevice(packet.getDevice());
+												task.setContext(getApplicationContext());
+												bleTasks.add(adr);
+												task.registerTaskDoneListner(BluetoothLEBackgroundService.this);
+												executor.execute(task);
+												Application.emptyingBuffer = true;
+												for (EmptyingBufferListner listner : emptyingBufferListners) {
+													listner.emptyingBufferStateChanged();
+												}
+											}
 										}
 									}
+
 								}
 							}
+						}
+						catch (Exception e) {
+							e.printStackTrace();
+							Log.e(TAG,"ERROR: " +e.getMessage());
 						}
 					}
 				});
 			}
 		}
 	};
-
-	
-
-	
 
 	@Override
 	public void onCreate() {
@@ -137,8 +176,6 @@ public class BluetoothLEBackgroundService extends Service implements PacketBroad
 			e.printStackTrace();
 		}
 	}
-
-	
 
 	@Override
 	public int onStartCommand(Intent intent, int flags, int startId) {
@@ -169,48 +206,40 @@ public class BluetoothLEBackgroundService extends Service implements PacketBroad
 	private void takeOff() throws Exception {
 		if (!isRunnning.get()) {
 			isRunnning.set(true);
-			if(Application.isDataSink()){
-				String path = getApplicationContext().getExternalFilesDir(null).getAbsolutePath();
-				File file = new File(path + "/mumilog.txt");
-				System.out.println("MUMI: " + file.getAbsolutePath());
-				fileWriter = new FileWriter(file);	
-				fileWriter.append("Starting: " + System.currentTimeMillis() + "\n");
-				fileWriter.flush();
-				PowerManager pm = (PowerManager)getApplicationContext().getSystemService(Context.POWER_SERVICE);
-				wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,TAG);
+			if (Application.isDataSink()) {
+				PowerManager pm = (PowerManager) getApplicationContext().getSystemService(Context.POWER_SERVICE);
+				wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, TAG);
 				wakeLock.acquire();
-			}			
+			}
 			if (initialize()) {
 				executor = Executors.newFixedThreadPool(6);
 				// gattExecutor = Executors.newSingleThreadExecutor();
 				executor.execute(new Runnable() {
-					
+
 					private long timeSinceLastScanReset;
+
 					@Override
 					public void run() {
 						String myTag = "Ble scanner thread";
 						Log.v(myTag, "Starting fresh");
 						while (isRunnning.get() || isResetting.get()) {
 							try {
-								if(isResetting.get()){
+								if (isResetting.get()) {
 									Thread.sleep(10000);
 									Log.v(myTag, "Found reset flag... sleeping");
 								}
 								int counter = 0;
 								while (!btAdapter.startLeScan(mLeScanCallback)) {
 									Thread.sleep(1500);
-									if(counter++ > 3){
+									if (counter++ > 3) {
 										Log.v(myTag, "Could not start le-scan... breaking out");
 										break;
 									}
 									Log.v(myTag, "Could not start le-scan... sleeping");
 								}
-								//Log.v(myTag, "Sleeping while scanning");
+								// Log.v(myTag, "Sleeping while scanning");
 								timeSinceLastScanReset = System.currentTimeMillis();
-								synchronized (adrHits) {
-									adrHits.clear();
-								}	
-								while (!moteFound.get() || ((System.currentTimeMillis() - timeSinceLastScanReset) < 1500)) {
+								while ((!moteFound.get() && ((System.currentTimeMillis() - timeSinceLastScanReset) < 5000)) || ((System.currentTimeMillis() - timeSinceLastScanReset) < 1500)) {
 									if (!isRunnning.get()) {
 										break;
 									}
@@ -220,7 +249,7 @@ public class BluetoothLEBackgroundService extends Service implements PacketBroad
 								btAdapter.stopLeScan(mLeScanCallback);
 							}
 							catch (Throwable e) {
-								if(!(e instanceof InterruptedException)){
+								if (!(e instanceof InterruptedException)) {
 									Log.e(TAG, "Error with scan thread or it has been killed", e);
 								}
 							}
@@ -228,22 +257,30 @@ public class BluetoothLEBackgroundService extends Service implements PacketBroad
 					}
 				});
 				executor.execute(new Runnable() {
+					long oneMin = 60 * 1000;
+
 					@Override
 					public void run() {
-						while(isRunnning.get() || isResetting.get()){
+						while (isRunnning.get() || isResetting.get()) {
 							try {
-								Thread.sleep(60 * 1000);//1 min
+								Thread.sleep(oneMin);// 1 min
 								Application.showShortToastOnUI("Cleaning old packets");
 								List<AdvertisementPacket> deprecated = new ArrayList<AdvertisementPacket>();
 								long time = System.currentTimeMillis();
-								for(AdvertisementPacket packet : packets.values()){
-									if(time - packet.getTimeStamp().getTime() >= 60000){
+								for (AdvertisementPacket packet : packets.values()) {
+									if (time - packet.getTimeStamp().getTime() >= oneMin) {
 										deprecated.add(packet);
 									}
 								}
-								if(deprecated.size() > 0){
-									for(AdvertisementPacket packet : deprecated){
-										packets.remove(packet);
+								for (AdvertisementPacket packet : newBornPackets.values()) {
+									if (time - packet.getTimeStamp().getTime() >= oneMin) {
+										deprecated.add(packet);
+									}
+								}
+								if (deprecated.size() > 0) {
+									for (AdvertisementPacket packet : deprecated) {
+										packets.remove(packet.getId());
+										newBornPackets.remove(packet.getDeviceAdr());
 									}
 									for (PacketListListner listner : listners) {
 										listner.PacketsDeprecated(deprecated);
@@ -251,29 +288,29 @@ public class BluetoothLEBackgroundService extends Service implements PacketBroad
 								}
 							}
 							catch (Throwable e) {
-								if(!(e instanceof InterruptedException)){
+								if (!(e instanceof InterruptedException)) {
 									Log.e(TAG, "Error with deprecator thread or it has been killed", e);
 								}
-							} 
+							}
 						}
 					}
 				});
 				executor.execute(new Runnable() {
 					@Override
 					public void run() {
-						while(isRunnning.get() || isResetting.get()){
+						while (isRunnning.get() || isResetting.get()) {
 							try {
-								if(System.currentTimeMillis() - timeSinceLastBTReset < SLEEP_BT_CHIP_RESET){
+								if (System.currentTimeMillis() - timeSinceLastBTReset < SLEEP_BT_CHIP_RESET) {
 									Thread.sleep(SLEEP_BT_CHIP_RESET);
-								}else{
+								} else {
 									Thread.sleep(1000);
 								}
-								if (Application.isDataSink() && bleTasks.size() == 0) { 
+								if (Application.isDataSink() && bleTasks.size() == 0) {
 									if (!isRunnning.get()) {
 										break;
 									}
 									synchronized (bleTasks) {
-										if(bleTasks.size() == 0){
+										if (bleTasks.size() == 0) {
 											isResetting.set(true);
 											isRunnning.set(false);
 											btAdapter.stopLeScan(mLeScanCallback);
@@ -281,7 +318,7 @@ public class BluetoothLEBackgroundService extends Service implements PacketBroad
 											Log.i(TAG, "RESETTING BT ADAPTOR");
 											btAdapter.disable();
 											Thread.sleep(10000); // 5 sec
-											while(!btAdapter.enable()){
+											while (!btAdapter.enable()) {
 												Thread.sleep(1000);
 												Log.i(TAG, "ERROR RESETTING ADAPTOR..sleeping");
 											}
@@ -293,7 +330,7 @@ public class BluetoothLEBackgroundService extends Service implements PacketBroad
 								}
 							}
 							catch (Throwable e) {
-								if(!(e instanceof InterruptedException)){
+								if (!(e instanceof InterruptedException)) {
 									Log.e(TAG, "Error with resetter thread or it has been killed", e);
 								}
 							}
@@ -307,7 +344,7 @@ public class BluetoothLEBackgroundService extends Service implements PacketBroad
 				Application.showLongToast("COULD NOT START BLE :0(");
 			}
 		} else {
-			Application.showLongToast( "BLE SERVICE ALREADY RUNNING!");
+			Application.showLongToast("BLE SERVICE ALREADY RUNNING!");
 		}
 	}
 
@@ -321,7 +358,7 @@ public class BluetoothLEBackgroundService extends Service implements PacketBroad
 
 	private void shutdownAndCleanup() {
 		isRunnning.set(false);
-		if(Application.isDataSink() && wakeLock != null){
+		if (Application.isDataSink() && wakeLock != null) {
 			wakeLock.release();
 		}
 		btAdapter.stopLeScan(mLeScanCallback);
@@ -332,6 +369,7 @@ public class BluetoothLEBackgroundService extends Service implements PacketBroad
 			}
 			catch (InterruptedException e) {}
 		}
+		Application.emptyingBuffer = false;
 	}
 
 	// BINDER PART
@@ -339,6 +377,7 @@ public class BluetoothLEBackgroundService extends Service implements PacketBroad
 	private final IBinder mBinder = new LocalBinder();
 
 	private Set<PacketListListner> listners = new HashSet<PacketListListner>();
+	private Set<PacketListListner> newBornlistners = new HashSet<PacketListListner>();
 
 	public class LocalBinder extends Binder {
 		public BluetoothLEBackgroundService getService() {
@@ -352,54 +391,74 @@ public class BluetoothLEBackgroundService extends Service implements PacketBroad
 	}
 
 	@Override
-	public void registerListner(PacketListListner listner) {
-		listners.add(listner);
-	}
-
-	@Override
-	public void removeListner(PacketListListner listner) {
-		listners.remove(listner);
-	}
-
-	@Override
-	public Collection<AdvertisementPacket> getPackets() {
-		return packets.values();
-	}
-
-	@Override
-	public void onDoneEmptyingBuffer(String adr) {
-		synchronized (bleTasks) {
-			bleTasks.remove(adr);
-		}
+	public Map<String, AdvertisementPacket> getPackets() {
+		return packets;
 	}
 	
-	public void addTaskAdr(String adr){
+	@Override
+	public Map<String, AdvertisementPacket> getNewBornPackets() {
+		return newBornPackets;
+	}
+
+	@Override
+	public void onTaskDone(String adr) {
+		synchronized (bleTasks) {
+			bleTasks.remove(adr);
+			Application.emptyingBuffer = false;
+			for (EmptyingBufferListner listner : emptyingBufferListners) {
+				listner.emptyingBufferStateChanged();
+			}
+		}
+	}
+
+	public void addTaskAdr(String adr) {
 		synchronized (bleTasks) {
 			bleTasks.add(adr);
 		}
 	}
-	
-	public void removeTaskAdr(String adr){
+
+	public void removeTaskAdr(String adr) {
 		synchronized (bleTasks) {
 			bleTasks.remove(adr);
 		}
 	}
-	
-	public static long getResetTime(){
+
+	public static long getResetTime() {
 		String deviceName = Devices.getDeviceName();
-		if(deviceName.equalsIgnoreCase("Asus Nexus 7 (2013)")){
+		if (deviceName.equalsIgnoreCase("Asus Nexus 7 (2013)")) {
 			Log.v(TAG, "Nexus device found");
-			return 3 * 60 * 1000;
+			return 3 * 60 * 1000; //3 min
 		}
-		return 120 * 60 * 1000;
+		return 60 * 60 * 1000; //one hour
+	}
+
+	@Override
+	public void registerEmptypingListner(EmptyingBufferListner listner) {
+		this.emptyingBufferListners.add(listner);
+	}
+
+	@Override
+	public void unregisterEmptypingListner(EmptyingBufferListner listner) {
+		this.emptyingBufferListners.remove(listner);
 	}
 	
-	private boolean getOffLoadingBoolean() {
-		String deviceName = Devices.getDeviceName();
-		if(deviceName.equalsIgnoreCase("Asus Nexus 7 (2013)")){
-			Log.v(TAG, "Nexus device found");
-			return true;
-		}
-		return false;
+	@Override
+	public void registerPacketListner(PacketListListner listner) {
+		listners.add(listner);
+	}
+
+	@Override
+	public void removePacketListner(PacketListListner listner) {
+		listners.remove(listner);
+	}
+	
+	@Override
+	public void registerNewBornPacketListner(PacketListListner listner) {
+		newBornlistners.add(listner);
+	}
+
+	@Override
+	public void removeNewBornPacketListner(PacketListListner listner) {
+		newBornlistners.remove(listner);
 	}
 }

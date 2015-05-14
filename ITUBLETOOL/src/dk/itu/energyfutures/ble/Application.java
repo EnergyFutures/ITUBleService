@@ -12,8 +12,11 @@ import dk.itu.energyfutures.ble.helpers.ITUConstants;
 public class Application extends android.app.Application{
 	private static SharedPreferences sharedPreferences;
 	private static Context applicationContext;
-	private static Boolean isDataSink;
+	private static Boolean dataSink;
+	private static Boolean showAdvanceSettings;
 	private static Handler handler;
+	public static boolean emptyingBuffer = false;
+	private static Boolean configNormaleMotes;
 
 	@Override
 	public void onCreate() {
@@ -100,19 +103,19 @@ public class Application extends android.app.Application{
 	}
 	
 	public static boolean isDataSink(){
-		if(isDataSink == null){
-			isDataSink = Application.getPref(ITUConstants.DEVICE_IS_A_GATEWAY_KEY,false);
+		if(dataSink == null){
+			dataSink = Application.getPref(ITUConstants.DEVICE_IS_A_GATEWAY_KEY,false);
 		}
-		return isDataSink;
+		return dataSink;
 	}
 	
-	public static boolean toggleDataSink(){
-		if(isDataSink == null){
-			isDataSink = Application.getPref(ITUConstants.DEVICE_IS_A_GATEWAY_KEY,false);
+	public static boolean toggleDataSinkFlag(){
+		if(dataSink == null){
+			dataSink = Application.getPref(ITUConstants.DEVICE_IS_A_GATEWAY_KEY,false);
 		}
-		Application.putBoolean(ITUConstants.DEVICE_IS_A_GATEWAY_KEY, !isDataSink);
-		isDataSink = !isDataSink;
-		return isDataSink;
+		Application.putBoolean(ITUConstants.DEVICE_IS_A_GATEWAY_KEY, !dataSink);
+		dataSink = !dataSink;
+		return dataSink;
 	}
 
 	public static void showShortToastOnUI(final String msg) {
@@ -131,5 +134,37 @@ public class Application extends android.app.Application{
 				showLongToast(msg);
 			}
 		});
+	}
+
+	public static Boolean getShowAdvanceSettings() {
+		if(showAdvanceSettings == null){
+			showAdvanceSettings = Application.getPref(ITUConstants.SHOW_ADVANCE_SETTINGS_KEY,false);
+		}
+		return showAdvanceSettings;
+	}
+
+	public static boolean toggleAdvanceSettingsFlag(){
+		if(showAdvanceSettings == null){
+			showAdvanceSettings = Application.getPref(ITUConstants.SHOW_ADVANCE_SETTINGS_KEY,false);
+		}
+		Application.putBoolean(ITUConstants.SHOW_ADVANCE_SETTINGS_KEY, !showAdvanceSettings);
+		showAdvanceSettings = !showAdvanceSettings;
+		return showAdvanceSettings;
+	}
+	
+	public static Boolean isConfigNormalMotesEnabled() {
+		if(configNormaleMotes == null){
+			configNormaleMotes = Application.getPref(ITUConstants.ENABLE_CONFIG_OF_NORMAL_MOTES,false);
+		}
+		return configNormaleMotes;
+	}
+
+	public static boolean toggleIsConfigNormalMotesEnabledFlag(){
+		if(configNormaleMotes == null){
+			configNormaleMotes = Application.getPref(ITUConstants.ENABLE_CONFIG_OF_NORMAL_MOTES,false);
+		}
+		Application.putBoolean(ITUConstants.ENABLE_CONFIG_OF_NORMAL_MOTES, !configNormaleMotes);
+		configNormaleMotes = !configNormaleMotes;
+		return configNormaleMotes;
 	}
 }

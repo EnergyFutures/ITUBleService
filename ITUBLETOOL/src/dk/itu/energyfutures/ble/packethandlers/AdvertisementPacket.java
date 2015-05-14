@@ -1,10 +1,11 @@
-package dk.itu.energyfutures.ble;
+package dk.itu.energyfutures.ble.packethandlers;
 
 import java.util.Date;
 
 import android.bluetooth.BluetoothDevice;
 import dk.itu.energyfutures.ble.helpers.BluetoothHelper;
 import dk.itu.energyfutures.ble.helpers.ITUConstants;
+import dk.itu.energyfutures.ble.helpers.ITUConstants.ITU_SENSOR_COORDINATE;
 
 public class AdvertisementPacket {
 	//private final static String TAG = AdvertisementPacket.class.getSimpleName();
@@ -12,10 +13,10 @@ public class AdvertisementPacket {
 	private String location;
 	private ITUConstants.ITU_SENSOR_TYPE sensorType;
 	private double value;
-	private ITUConstants.ITU_MOTE_COORDINATE coordinate;
+	private ITU_SENSOR_COORDINATE coordinate;
 	private ITUConstants.ITU_SENSOR_CONFIG_TYPE sensorConfigType;
 	private int batteryLevel;
-	private Date timeStamp;
+	public Date timeStamp;
 	private BluetoothDevice device;
 	private int bufferLevel;
 	private boolean bufferNeedsCleaning;
@@ -58,15 +59,15 @@ public class AdvertisementPacket {
 			ITUConstants.ITU_SENSOR_TYPE type = ITUConstants.ITU_SENSOR_TYPE_ARRAY[data[index++]];
 			packet.setSensorType(type);
 
-			double value = BluetoothHelper.getIEEEFloatValue(BluetoothHelper.unsignedBytesToInt(data, index));
+			double value = BluetoothHelper.getIEEEFloatValue(BluetoothHelper.unsignedBytesTo32Int(data, index));
 			index += 4;
 			packet.setValue(value);
 
-			ITUConstants.ITU_MOTE_COORDINATE coor = ITUConstants.ITU_MOTE_COORDINATE_ARRAY[data[index++]];
+			ITU_SENSOR_COORDINATE coor = ITUConstants.ITU_SENSOR_COORDINATE_ARRAY[data[index++]];
 			packet.setCoordinate(coor);
 
 			int id = ((data[index++]) & 0x000000ff)  | ((data[index++] << 8) & 0x0000ff00);
-			packet.setId(locationName + deviceName + id + type);
+			packet.setId(id+"");
 
 			packet.timeStamp = new Date();
 			
@@ -77,7 +78,7 @@ public class AdvertisementPacket {
 		}
 	}
 
-	private void setDevice(BluetoothDevice device) {
+	public void setDevice(BluetoothDevice device) {
 		this.device = device;
 	}
 
@@ -93,7 +94,7 @@ public class AdvertisementPacket {
 		return batteryLevel;
 	}
 
-	private void setBatteryLevel(int batteryLevel) {
+	public void setBatteryLevel(int batteryLevel) {
 		this.batteryLevel = batteryLevel;
 	}
 
@@ -101,7 +102,7 @@ public class AdvertisementPacket {
 		return deviceName;
 	}
 
-	private void setDeviceName(String deviceName) {
+	public void setDeviceName(String deviceName) {
 		this.deviceName = deviceName;
 	}
 
@@ -109,7 +110,7 @@ public class AdvertisementPacket {
 		return location;
 	}
 
-	private void setLocation(String location) {
+	public void setLocation(String location) {
 		this.location = location;
 	}
 
@@ -117,7 +118,7 @@ public class AdvertisementPacket {
 		return sensorType;
 	}
 
-	private void setSensorType(ITUConstants.ITU_SENSOR_TYPE sensorType) {
+	public void setSensorType(ITUConstants.ITU_SENSOR_TYPE sensorType) {
 		this.sensorType = sensorType;
 	}
 
@@ -125,15 +126,15 @@ public class AdvertisementPacket {
 		return value;
 	}
 
-	private void setValue(double value) {
+	public void setValue(double value) {
 		this.value = value;
 	}
 
-	public ITUConstants.ITU_MOTE_COORDINATE getCoordinate() {
+	public ITU_SENSOR_COORDINATE getCoordinate() {
 		return coordinate;
 	}
 
-	private void setCoordinate(ITUConstants.ITU_MOTE_COORDINATE coordinate) {
+	public void setCoordinate(ITU_SENSOR_COORDINATE coordinate) {
 		this.coordinate = coordinate;
 	}
 
@@ -141,7 +142,7 @@ public class AdvertisementPacket {
 		return sensorConfigType;
 	}
 
-	private void setSensorConfigType(ITUConstants.ITU_SENSOR_CONFIG_TYPE moteType) {
+	public void setSensorConfigType(ITUConstants.ITU_SENSOR_CONFIG_TYPE moteType) {
 		this.sensorConfigType = moteType;
 	}
 
@@ -167,6 +168,10 @@ public class AdvertisementPacket {
 
 	public void setId(String id) {
 		this.id = id;
+	}
+	
+	public String getDeviceAdr(){
+		return device.getAddress();
 	}
 
 	
@@ -198,11 +203,11 @@ public class AdvertisementPacket {
 				+ "]";
 	}
 
-	public static void clonePackets(AdvertisementPacket old, AdvertisementPacket neww){
+	/*public static void clonePackets(AdvertisementPacket old, AdvertisementPacket neww){
 		old.batteryLevel = neww.batteryLevel;
 		old.bufferLevel = neww.bufferLevel;
 		old.bufferNeedsCleaning = neww.bufferNeedsCleaning;
 		old.timeStamp = neww.timeStamp;
 		old.value = neww.value;
-	}
+	}*/
 }

@@ -2,7 +2,6 @@ package dk.itu.energyfutures.ble.activities;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -10,36 +9,35 @@ import java.util.Map.Entry;
 import java.util.TreeMap;
 
 import android.app.Activity;
-import android.app.ListActivity;
+import android.app.AlertDialog;
 import android.content.ComponentName;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.os.IBinder;
-import android.util.TypedValue;
+import android.text.InputType;
 import android.view.Gravity;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.Window;
 import android.widget.BaseAdapter;
+import android.widget.EditText;
 import android.widget.GridView;
-import android.widget.RelativeLayout.LayoutParams;
 import android.widget.TextView;
 import android.widget.Toast;
-import dk.itu.energyfutures.ble.AdvertisementPacket;
 import dk.itu.energyfutures.ble.Application;
 import dk.itu.energyfutures.ble.BluetoothLEBackgroundService;
-import dk.itu.energyfutures.ble.R;
 import dk.itu.energyfutures.ble.BluetoothLEBackgroundService.LocalBinder;
-import dk.itu.energyfutures.ble.R.drawable;
-import dk.itu.energyfutures.ble.R.id;
-import dk.itu.energyfutures.ble.R.menu;
-import dk.itu.energyfutures.ble.helpers.ITUConstants;
+import dk.itu.energyfutures.ble.R;
+import dk.itu.energyfutures.ble.packethandlers.AdvertisementPacket;
 import dk.itu.energyfutures.ble.packethandlers.PacketListListner;
+import dk.itu.energyfutures.ble.task.EmptyingBufferListner;
 
-public class LocationListActivity extends Activity implements PacketListListner {
+public class LocationListActivity extends Activity implements PacketListListner, EmptyingBufferListner {
 	private final static String TAG = LocationListActivity.class.getSimpleName();
 	private Map<String, HashSet<AdvertisementPacket>> packets = new TreeMap<String, HashSet<AdvertisementPacket>>();
 	private MyAdapter adapter = new MyAdapter(packets);
@@ -50,6 +48,7 @@ public class LocationListActivity extends Activity implements PacketListListner 
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+		requestWindowFeature(Window.FEATURE_INDETERMINATE_PROGRESS);
 		Intent intent = getIntent();
 		if (intent != null) {
 			if (intent.getBooleanExtra("EXIT", false)) {
@@ -61,9 +60,9 @@ public class LocationListActivity extends Activity implements PacketListListner 
 		setContentView(R.layout.location_list_view);
 		GridView gv = (GridView) findViewById(R.id.gridView3);
 		gv.setAdapter(adapter);
-//		this.setListAdapter(adapter);
-//		this.getListView().setDivider(getResources().getDrawable(R.drawable.divider));
-//		this.getListView().setDividerHeight((int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 2, getResources().getDisplayMetrics()));
+		// this.setListAdapter(adapter);
+		// this.getListView().setDivider(getResources().getDrawable(R.drawable.divider));
+		// this.getListView().setDividerHeight((int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 2, getResources().getDisplayMetrics()));
 	}
 
 	// Adapter for holding devices found through scanning.
@@ -120,18 +119,18 @@ public class LocationListActivity extends Activity implements PacketListListner 
 
 	@Override
 	public void newPacketArrived(final AdvertisementPacket packet) {
-		HashSet<AdvertisementPacket> localPackets = packets.get(packet.getLocation());
-		if (localPackets == null) {
-			localPackets = new HashSet<AdvertisementPacket>();
-			packets.put(packet.getLocation(), localPackets);
-			adapter.mData.clear();
-			adapter.mData.addAll(packets.entrySet());
-		}
-		localPackets.remove(packet);
-		localPackets.add(packet);
 		this.runOnUiThread(new Runnable() {
 			@Override
 			public void run() {
+				HashSet<AdvertisementPacket> localPackets = packets.get(packet.getLocation());
+				if (localPackets == null) {
+					localPackets = new HashSet<AdvertisementPacket>();
+					packets.put(packet.getLocation(), localPackets);
+					adapter.mData.clear();
+					adapter.mData.addAll(packets.entrySet());
+				}
+				localPackets.remove(packet);
+				localPackets.add(packet);
 				adapter.notifyDataSetChanged();
 			}
 		});
@@ -153,7 +152,8 @@ public class LocationListActivity extends Activity implements PacketListListner 
 	protected void onPause() {
 		super.onPause();
 		if (bound) {
-			service.removeListner(this);
+			service.removePacketListner(this);
+			service.unregisterEmptypingListner(this);
 		}
 	}
 
@@ -161,6 +161,7 @@ public class LocationListActivity extends Activity implements PacketListListner 
 	protected void onResume() {
 		super.onResume();
 		refreshRooms();
+		setProgressBarIndeterminateVisibility(Application.emptyingBuffer);
 	}
 
 	@Override
@@ -178,7 +179,7 @@ public class LocationListActivity extends Activity implements PacketListListner 
 
 	private void refreshRooms() {
 		if (bound) {
-			Collection<AdvertisementPacket> allPackets = service.getPackets();
+			Collection<AdvertisementPacket> allPackets = service.getPackets().values();
 			for (AdvertisementPacket packet : allPackets) {
 				HashSet<AdvertisementPacket> locationPackets = packets.get(packet.getLocation());
 				if (locationPackets == null) {
@@ -190,7 +191,8 @@ public class LocationListActivity extends Activity implements PacketListListner 
 				locationPackets.add(packet);
 			}
 			adapter.notifyDataSetChanged();
-			service.registerListner(this);
+			service.registerPacketListner(this);
+			service.registerEmptypingListner(this);
 		}
 	}
 
@@ -201,7 +203,6 @@ public class LocationListActivity extends Activity implements PacketListListner 
 			// We've bound to LocalService, cast the IBinder and get LocalService instance
 			LocalBinder binder = (LocalBinder) iBinder;
 			service = binder.getService();
-			service.registerListner(LocationListActivity.this);
 			bound = true;
 			refreshRooms();
 		}
@@ -216,8 +217,29 @@ public class LocationListActivity extends Activity implements PacketListListner 
 	public boolean onCreateOptionsMenu(Menu menu) {
 		// Inflate the menu; this adds items to the action bar if it is present.
 		getMenuInflater().inflate(R.menu.main, menu);
-		MenuItem item = menu.findItem(R.id.main_mote_view);
-		item.setVisible(Application.isDataSink());
+		MenuItem item1 = menu.findItem(R.id.main_toggle_advance_settings);
+		if(Application.getShowAdvanceSettings()){
+			item1.setTitle("Disable Advance Settings");
+		}else{
+			item1.setTitle("Enable Advance Settings");
+		}
+		MenuItem item2 = menu.findItem(R.id.main_toggle_data_sink);
+		if(Application.isDataSink()){
+			item2.setTitle("Disable Data-Sink");
+		}else{
+			item2.setTitle("Enable Data-Sink");
+		}
+		item2.setVisible(Application.getShowAdvanceSettings());
+		MenuItem item3 = menu.findItem(R.id.main_mote_view);
+		item3.setVisible(Application.getShowAdvanceSettings());
+		
+		MenuItem item4 = menu.findItem(R.id.main_toggle_config_mote);
+		if(Application.isConfigNormalMotesEnabled()){
+			item4.setTitle("Disable Mote-Config");
+		}else{
+			item4.setTitle("Enable Mote-Config");
+		}
+		item4.setVisible(Application.getShowAdvanceSettings());
 		return true;
 	}
 
@@ -238,37 +260,101 @@ public class LocationListActivity extends Activity implements PacketListListner 
 		} else if (id == R.id.main_exit) {
 			finish();
 			return true;
-		}else if (id == R.id.main_mote_view) {
+		} else if (id == R.id.main_mote_view) {
 			Intent intent = new Intent(LocationListActivity.this, MoteListActivity.class);
 			startActivity(intent);
-		}
-		else if (id == R.id.main_toggle_data_sink) {
-			Application.toggleDataSink();
+		} else if (id == R.id.main_toggle_data_sink) {
+			if(!Application.isDataSink()){
+				AlertDialog.Builder builder = new AlertDialog.Builder(LocationListActivity.this);
+				DialogInterface.OnClickListener dialogClickListener = new DialogInterface.OnClickListener() {
+				    @Override
+				    public void onClick(DialogInterface dialog, int which) {
+				        switch (which){
+				        case DialogInterface.BUTTON_POSITIVE:
+				        	Application.toggleDataSinkFlag();
+							invalidateOptionsMenu();
+				            break;
+
+				        case DialogInterface.BUTTON_NEGATIVE:
+				            //No button clicked
+				            break;
+				        }
+				    }
+				};
+				builder.setMessage("This allows the app to collect data and use your internet.\nRandom BT-chip reset will occur.\nWe appreciate any help :0)\nAre you sure?").setPositiveButton("Yes", dialogClickListener)
+				    .setNegativeButton("No", dialogClickListener).show();
+			}else{
+				Application.toggleDataSinkFlag();
+				invalidateOptionsMenu();
+			}
+		} else if (id == R.id.main_toggle_advance_settings) {
+			Application.toggleAdvanceSettingsFlag();
 			invalidateOptionsMenu();
+		} else if (id == R.id.main_toggle_config_mote) {
+			if(!Application.isConfigNormalMotesEnabled()){
+				final EditText et = new EditText(LocationListActivity.this);
+				et.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+				et.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+				AlertDialog.Builder builder = new AlertDialog.Builder(LocationListActivity.this);
+				DialogInterface.OnClickListener dialogClickListener = new DialogInterface.OnClickListener() {
+				    @Override
+				    public void onClick(DialogInterface dialog, int which) {
+				        switch (which){
+				        case DialogInterface.BUTTON_POSITIVE:
+				        	if(et.getText().toString().equals("future")){
+				        		invalidateOptionsMenu();
+				        		Application.toggleIsConfigNormalMotesEnabledFlag();
+				        	}
+				            break;
+
+				        case DialogInterface.BUTTON_NEGATIVE:
+				            //No button clicked
+				            break;
+				        }
+				    }
+				};
+				builder.setMessage("Changing this allows you to override existing running motes .\nType password").setPositiveButton("Yes", dialogClickListener)
+				    .setNegativeButton("No", dialogClickListener).setView(et).show();
+			}else{
+				Application.toggleIsConfigNormalMotesEnabledFlag();
+				invalidateOptionsMenu();
+			}
 		}
 		return super.onOptionsItemSelected(item);
 	}
 
 	@Override
-	public void PacketsDeprecated(List<AdvertisementPacket> deprecatedPackets) {
-		boolean removedLocation = false;
-		for(AdvertisementPacket packet : deprecatedPackets){
-			HashSet<AdvertisementPacket> localPackets = packets.get(packet.getLocation());
-			if (localPackets != null) {
-				localPackets.remove(packet);
-				if(localPackets.size() == 0){
-					packets.remove(packet.getLocation());
-					removedLocation = true;
+	public void PacketsDeprecated(final List<AdvertisementPacket> deprecatedPackets) {
+
+		this.runOnUiThread(new Runnable() {
+			@Override
+			public void run() {
+				boolean removedLocation = false;
+				for (AdvertisementPacket packet : deprecatedPackets) {
+					HashSet<AdvertisementPacket> localPackets = packets.get(packet.getLocation());
+					if (localPackets != null) {
+						localPackets.remove(packet);
+						if (localPackets.size() == 0) {
+							packets.remove(packet.getLocation());
+							removedLocation = true;
+						}
+					}
 				}
-			}
-		}
-		if(removedLocation){
-			this.runOnUiThread(new Runnable() {
-				@Override
-				public void run() {
+				if (removedLocation) {
 					adapter.notifyDataSetChanged();
 				}
-			});
-		}
+			}
+		});
+
+	}
+
+	@Override
+	public void emptyingBufferStateChanged() {
+		this.runOnUiThread(new Runnable() {
+			@Override
+			public void run() {
+				setProgressBarIndeterminateVisibility(Application.emptyingBuffer);
+			}
+		});
 	}
 }

@@ -181,7 +181,11 @@ public class BluetoothHelper {
 	}
 	
 	
-	public static int unsignedBytesToInt(byte[] data, int index) {
+	public static int unsignedBytesTo32Int(byte[] data, int index) {
         return (data[index] & 0x000000ff) | ((data[index+1] << 8) & 0x0000ff00) | ((data[index+2] << 16) & 0x00ff0000) | ((data[index+3] << 24) & 0xff000000);
+    }
+	
+	public static int unsignedBytesTo16Int(byte[] data, int index) {
+        return (data[index] & 0x000000ff) | ((data[index+1] << 8) & 0x0000ff00);
     }
 }

@@ -10,9 +10,9 @@ import android.bluetooth.BluetoothProfile;
 import android.content.Context;
 import android.os.AsyncTask;
 import android.util.Log;
-import dk.itu.energyfutures.ble.AdvertisementPacket;
 import dk.itu.energyfutures.ble.BluetoothLEBackgroundService;
 import dk.itu.energyfutures.ble.helpers.ITUConstants;
+import dk.itu.energyfutures.ble.packethandlers.AdvertisementPacket;
 
 public class ActuationTask extends AsyncTask<Void, Void, Void> {
 	private final static String TAG = ActuationTask.class.getSimpleName();
@@ -100,7 +100,7 @@ public class ActuationTask extends AsyncTask<Void, Void, Void> {
 					done = true;
 					return;
 				}
-				BluetoothGattCharacteristic characteristic = service.getCharacteristic(ITUConstants.BLE_UUID_ITU_ACTUATOR_COMMAND_CHAR);
+				BluetoothGattCharacteristic characteristic = service.getCharacteristic(ITUConstants.BLE_UUID_ITU_ACTUATOR_JSON_COMMAND_CHAR);
 				gatt.readCharacteristic(characteristic);
 			} else {
 				Log.e(TAG, "onServicesDiscovered received: " + status + " for adr: " + adr);

@@ -1,12 +1,12 @@
 package dk.itu.energyfutures.ble.packethandlers;
 
-import java.util.Collection;
-import java.util.Set;
-
-import dk.itu.energyfutures.ble.AdvertisementPacket;
+import java.util.Map;
 
 public interface PacketBroadcaster {
-	void registerListner(PacketListListner listner);
-	void removeListner(PacketListListner listner);
-	Collection<AdvertisementPacket> getPackets();
+	void registerPacketListner(PacketListListner listner);
+	void removePacketListner(PacketListListner listner);
+	Map<String, AdvertisementPacket> getPackets();
+	Map<String, AdvertisementPacket> getNewBornPackets();
+	void registerNewBornPacketListner(PacketListListner listner);
+	void removeNewBornPacketListner(PacketListListner listner);
 }

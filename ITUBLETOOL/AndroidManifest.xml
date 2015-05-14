@@ -13,7 +13,6 @@
     <uses-permission android:name="android.permission.BLUETOOTH" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
 
     <uses-feature
         android:name="android.hardware.bluetooth_le"
@@ -23,9 +22,9 @@
     <application
         android:allowBackup="false"
         android:icon="@drawable/ic_launcher"
-        android:label="BleService"
+        android:label="BLEoT"
         android:theme="@android:style/Theme.Holo.Light" 
-        android:name="dk.itu.energyfutures.ble.Application">
+        android:name="dk.itu.energyfutures.ble.Application" android:logo="@drawable/ic_launcher" android:hardwareAccelerated="true">
         <activity android:name="dk.itu.energyfutures.ble.activities.LocationListActivity" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -34,6 +33,7 @@
         </activity>
         <activity android:parentActivityName="dk.itu.energyfutures.ble.activities.LocationListActivity" android:name="dk.itu.energyfutures.ble.activities.LocationActivity" />
         <activity android:parentActivityName="dk.itu.energyfutures.ble.activities.LocationListActivity" android:name="dk.itu.energyfutures.ble.activities.MoteListActivity" />
+        <activity android:parentActivityName="dk.itu.energyfutures.ble.activities.MoteListActivity" android:name="dk.itu.energyfutures.ble.activities.DeviceConfigActivity" />
 
         <service
             android:name="dk.itu.energyfutures.ble.BluetoothLEBackgroundService"

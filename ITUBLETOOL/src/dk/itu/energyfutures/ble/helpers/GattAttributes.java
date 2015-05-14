@@ -167,7 +167,7 @@ public class GattAttributes {
 		// Sample Characteristics.
 		attributes.put(ITUConstants.BLE_UUID_ITU_MEASUREMENT_VALUE_CHAR, "ITU BLE MEASUREMENT");
 		attributes.put(ITUConstants.BLE_UUID_ITU_MEASUREMENT_CONFIG_CHAR, "ITU BLE MEASUREMENT CONFIG");
-		attributes.put(ITUConstants.BLE_UUID_ITU_ACTUATOR_COMMAND_CHAR, "ITU BLE ACTUATOR COMMAND");
+		attributes.put(ITUConstants.BLE_UUID_ITU_ACTUATOR_JSON_COMMAND_CHAR, "ITU BLE ACTUATOR COMMAND");
 		attributes.put(ITUConstants.BLE_UUID_ITU_ACTUATOR_JSON_CHAR, "ITU BLE ACTUATOR JSON");
 		attributes.put(BLE_UUID_CCCD_DESCRIPTOR, "CLIENT CHAR CONFIG");
 		attributes.put(MANUFACTOR_NAME, "Manufacturer Name String");
