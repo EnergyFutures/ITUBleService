@@ -82,10 +82,13 @@ public class ITUConstants {
 		if (ITU_SENSOR_TYPE.WINDOW.equals(advertisementPacket.getSensorType())) {
 			return "";
 		}
+		if(advertisementPacket.getLocation().contains("4D23")){
+			System.out.println();
+		}
 		ITU_SENSOR_COORDINATE coordinate = advertisementPacket.getCoordinate();
 		switch (coordinate) {
 		case LOCATION_IN_SOMEWHERE:
-			return "IN|SOMEWHERE";
+			return "IN|SOMEWHE";
 		case LOCATION_IN_FLOOR:
 			return "IN|FLOOR";
 		case LOCATION_IN_MIDDLE:

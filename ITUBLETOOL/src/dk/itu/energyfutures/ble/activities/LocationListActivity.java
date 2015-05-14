@@ -1,12 +1,9 @@
 package dk.itu.energyfutures.ble.activities;
 
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.TreeMap;
+import java.util.Set;
+import java.util.TreeSet;
 
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -14,7 +11,6 @@ import android.content.ComponentName;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.ServiceConnection;
-import android.graphics.Color;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.text.InputType;
@@ -38,11 +34,10 @@ import dk.itu.energyfutures.ble.packethandlers.PacketListListner;
 import dk.itu.energyfutures.ble.task.EmptyingBufferListner;
 
 public class LocationListActivity extends Activity implements PacketListListner, EmptyingBufferListner {
-	private final static String TAG = LocationListActivity.class.getSimpleName();
-	private Map<String, HashSet<AdvertisementPacket>> packets = new TreeMap<String, HashSet<AdvertisementPacket>>();
-	private MyAdapter adapter = new MyAdapter(packets);
+	//private final static String TAG = LocationListActivity.class.getSimpleName();
+	private Set<String> packets = new TreeSet<String>();
+	private MyAdapter adapter = new MyAdapter();
 	private BluetoothLEBackgroundService service;
-	private static final int backgroundColor = Color.argb(135, 200, 120, 249);
 	private boolean bound;
 
 	@Override
@@ -67,21 +62,20 @@ public class LocationListActivity extends Activity implements PacketListListner,
 
 	// Adapter for holding devices found through scanning.
 	private class MyAdapter extends BaseAdapter {
-		public final ArrayList<Entry<String, HashSet<AdvertisementPacket>>> mData;
-
-		public MyAdapter(Map<String, HashSet<AdvertisementPacket>> map) {
-			mData = new ArrayList<Entry<String, HashSet<AdvertisementPacket>>>();
-			mData.addAll(map.entrySet());
-		}
-
 		@Override
 		public int getCount() {
-			return mData.size();
+			return packets.size();
 		}
 
 		@Override
-		public Entry<String, HashSet<AdvertisementPacket>> getItem(int position) {
-			return mData.get(position);
+		public String getItem(int position) {
+			int j = 0;
+			for (String s : packets) {
+				if (j++ == position) {
+					return s;
+				}
+			}
+			return "";
 		}
 
 		@Override
@@ -100,19 +94,19 @@ public class LocationListActivity extends Activity implements PacketListListner,
 			v.setTextSize(30);
 			v.setMaxLines(1);
 			v.setClickable(true);
+			final String location = getItem(i);
 			v.setOnClickListener(new View.OnClickListener() {
 				@Override
 				public void onClick(View v) {
 					if (v != null && v.getTag() != null) {
 						Intent intent = new Intent(LocationListActivity.this, LocationActivity.class);
-						intent.putExtra(LocationActivity.MOTE_LOCATION, mData.get(i).getKey());
+						intent.putExtra(LocationActivity.MOTE_LOCATION, (String) v.getTag());
 						startActivity(intent);
 					}
 				}
 			});
-			Entry<String, HashSet<AdvertisementPacket>> item = getItem(i);
-			v.setText(item.getKey());
-			v.setTag(item.getValue());
+			v.setText(location);
+			v.setTag(location);
 			return v;
 		}
 	}
@@ -122,16 +116,9 @@ public class LocationListActivity extends Activity implements PacketListListner,
 		this.runOnUiThread(new Runnable() {
 			@Override
 			public void run() {
-				HashSet<AdvertisementPacket> localPackets = packets.get(packet.getLocation());
-				if (localPackets == null) {
-					localPackets = new HashSet<AdvertisementPacket>();
-					packets.put(packet.getLocation(), localPackets);
-					adapter.mData.clear();
-					adapter.mData.addAll(packets.entrySet());
+				if (packets.add(packet.getLocation())) {
+					adapter.notifyDataSetChanged();
 				}
-				localPackets.remove(packet);
-				localPackets.add(packet);
-				adapter.notifyDataSetChanged();
 			}
 		});
 	}
@@ -180,15 +167,9 @@ public class LocationListActivity extends Activity implements PacketListListner,
 	private void refreshRooms() {
 		if (bound) {
 			Collection<AdvertisementPacket> allPackets = service.getPackets().values();
+			packets.clear();
 			for (AdvertisementPacket packet : allPackets) {
-				HashSet<AdvertisementPacket> locationPackets = packets.get(packet.getLocation());
-				if (locationPackets == null) {
-					locationPackets = new HashSet<AdvertisementPacket>();
-					packets.put(packet.getLocation(), locationPackets);
-					adapter.mData.clear();
-					adapter.mData.addAll(packets.entrySet());
-				}
-				locationPackets.add(packet);
+				packets.add(packet.getLocation());
 			}
 			adapter.notifyDataSetChanged();
 			service.registerPacketListner(this);
@@ -218,25 +199,25 @@ public class LocationListActivity extends Activity implements PacketListListner,
 		// Inflate the menu; this adds items to the action bar if it is present.
 		getMenuInflater().inflate(R.menu.main, menu);
 		MenuItem item1 = menu.findItem(R.id.main_toggle_advance_settings);
-		if(Application.getShowAdvanceSettings()){
+		if (Application.getShowAdvanceSettings()) {
 			item1.setTitle("Disable Advance Settings");
-		}else{
+		} else {
 			item1.setTitle("Enable Advance Settings");
 		}
 		MenuItem item2 = menu.findItem(R.id.main_toggle_data_sink);
-		if(Application.isDataSink()){
+		if (Application.isDataSink()) {
 			item2.setTitle("Disable Data-Sink");
-		}else{
+		} else {
 			item2.setTitle("Enable Data-Sink");
 		}
 		item2.setVisible(Application.getShowAdvanceSettings());
 		MenuItem item3 = menu.findItem(R.id.main_mote_view);
 		item3.setVisible(Application.getShowAdvanceSettings());
-		
+
 		MenuItem item4 = menu.findItem(R.id.main_toggle_config_mote);
-		if(Application.isConfigNormalMotesEnabled()){
+		if (Application.isConfigNormalMotesEnabled()) {
 			item4.setTitle("Disable Mote-Config");
-		}else{
+		} else {
 			item4.setTitle("Enable Mote-Config");
 		}
 		item4.setVisible(Application.getShowAdvanceSettings());
@@ -253,7 +234,7 @@ public class LocationListActivity extends Activity implements PacketListListner,
 			if (bound) {
 				service.getPackets().clear();
 				packets.clear();
-				adapter.mData.clear();
+				adapter.notifyDataSetChanged();
 				refreshRooms();
 			}
 			return true;
@@ -264,26 +245,26 @@ public class LocationListActivity extends Activity implements PacketListListner,
 			Intent intent = new Intent(LocationListActivity.this, MoteListActivity.class);
 			startActivity(intent);
 		} else if (id == R.id.main_toggle_data_sink) {
-			if(!Application.isDataSink()){
+			if (!Application.isDataSink()) {
 				AlertDialog.Builder builder = new AlertDialog.Builder(LocationListActivity.this);
 				DialogInterface.OnClickListener dialogClickListener = new DialogInterface.OnClickListener() {
-				    @Override
-				    public void onClick(DialogInterface dialog, int which) {
-				        switch (which){
-				        case DialogInterface.BUTTON_POSITIVE:
-				        	Application.toggleDataSinkFlag();
+					@Override
+					public void onClick(DialogInterface dialog, int which) {
+						switch (which) {
+						case DialogInterface.BUTTON_POSITIVE:
+							Application.toggleDataSinkFlag();
 							invalidateOptionsMenu();
-				            break;
+							break;
 
-				        case DialogInterface.BUTTON_NEGATIVE:
-				            //No button clicked
-				            break;
-				        }
-				    }
+						case DialogInterface.BUTTON_NEGATIVE:
+							// No button clicked
+							break;
+						}
+					}
 				};
-				builder.setMessage("This allows the app to collect data and use your internet.\nRandom BT-chip reset will occur.\nWe appreciate any help :0)\nAre you sure?").setPositiveButton("Yes", dialogClickListener)
-				    .setNegativeButton("No", dialogClickListener).show();
-			}else{
+				builder.setMessage("This allows the app to collect data and use your internet.\nRandom BT-chip reset will occur.\nWe appreciate any help :0)\nAre you sure?")
+						.setPositiveButton("Yes", dialogClickListener).setNegativeButton("No", dialogClickListener).show();
+			} else {
 				Application.toggleDataSinkFlag();
 				invalidateOptionsMenu();
 			}
@@ -291,31 +272,31 @@ public class LocationListActivity extends Activity implements PacketListListner,
 			Application.toggleAdvanceSettingsFlag();
 			invalidateOptionsMenu();
 		} else if (id == R.id.main_toggle_config_mote) {
-			if(!Application.isConfigNormalMotesEnabled()){
+			if (!Application.isConfigNormalMotesEnabled()) {
 				final EditText et = new EditText(LocationListActivity.this);
 				et.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
 				et.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 				AlertDialog.Builder builder = new AlertDialog.Builder(LocationListActivity.this);
 				DialogInterface.OnClickListener dialogClickListener = new DialogInterface.OnClickListener() {
-				    @Override
-				    public void onClick(DialogInterface dialog, int which) {
-				        switch (which){
-				        case DialogInterface.BUTTON_POSITIVE:
-				        	if(et.getText().toString().equals("future")){
-				        		invalidateOptionsMenu();
-				        		Application.toggleIsConfigNormalMotesEnabledFlag();
-				        	}
-				            break;
+					@Override
+					public void onClick(DialogInterface dialog, int which) {
+						switch (which) {
+						case DialogInterface.BUTTON_POSITIVE:
+							if (et.getText().toString().equals("future")) {
+								invalidateOptionsMenu();
+								Application.toggleIsConfigNormalMotesEnabledFlag();
+							}
+							break;
 
-				        case DialogInterface.BUTTON_NEGATIVE:
-				            //No button clicked
-				            break;
-				        }
-				    }
+						case DialogInterface.BUTTON_NEGATIVE:
+							// No button clicked
+							break;
+						}
+					}
 				};
 				builder.setMessage("Changing this allows you to override existing running motes .\nType password").setPositiveButton("Yes", dialogClickListener)
-				    .setNegativeButton("No", dialogClickListener).setView(et).show();
-			}else{
+						.setNegativeButton("No", dialogClickListener).setView(et).show();
+			} else {
 				Application.toggleIsConfigNormalMotesEnabledFlag();
 				invalidateOptionsMenu();
 			}
@@ -325,27 +306,17 @@ public class LocationListActivity extends Activity implements PacketListListner,
 
 	@Override
 	public void PacketsDeprecated(final List<AdvertisementPacket> deprecatedPackets) {
-
 		this.runOnUiThread(new Runnable() {
 			@Override
 			public void run() {
-				boolean removedLocation = false;
-				for (AdvertisementPacket packet : deprecatedPackets) {
-					HashSet<AdvertisementPacket> localPackets = packets.get(packet.getLocation());
-					if (localPackets != null) {
-						localPackets.remove(packet);
-						if (localPackets.size() == 0) {
-							packets.remove(packet.getLocation());
-							removedLocation = true;
-						}
-					}
+				Collection<AdvertisementPacket> allPackets = service.getPackets().values();
+				packets.clear();
+				for (AdvertisementPacket packet : allPackets) {
+					packets.add(packet.getLocation());
 				}
-				if (removedLocation) {
-					adapter.notifyDataSetChanged();
-				}
+				adapter.notifyDataSetChanged();
 			}
 		});
-
 	}
 
 	@Override

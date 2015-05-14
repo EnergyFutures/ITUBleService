@@ -339,6 +339,49 @@ public class DeviceConfigActivity extends Activity implements ConfigTaskListner 
 				}
 			}
 		});
+		
+		EditText con_db = (EditText) table.findViewById(R.id.connected_transmit_db);
+		con_db.setText(moteConfigParser.getConnectedTransmitPower() + "");
+		con_db.addTextChangedListener(new TextWatcher() {
+
+			@Override
+			public void onTextChanged(CharSequence s, int start, int before, int count) {}
+
+			@Override
+			public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+			@Override
+			public void afterTextChanged(Editable s) {
+				String num = s.toString();
+				if (!"".equals(num)) {
+					moteConfigParser.setConnectedTransmitPower(Integer.parseInt(num));
+				} else {
+					moteConfigParser.setConnectedTransmitPower(100);
+				}
+			}
+		});
+		
+		EditText non_con_db = (EditText) table.findViewById(R.id.non_connected_transmit_db);
+		non_con_db.setText(moteConfigParser.getNonConnectedTransmitPower() + "");
+		non_con_db.addTextChangedListener(new TextWatcher() {
+
+			@Override
+			public void onTextChanged(CharSequence s, int start, int before, int count) {}
+
+			@Override
+			public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+			@Override
+			public void afterTextChanged(Editable s) {
+				String num = s.toString();
+				if (!"".equals(num)) {
+					moteConfigParser.setNonConnectedTransmitPower(Integer.parseInt(num));
+				} else {
+					moteConfigParser.setNonConnectedTransmitPower(100);
+				}
+			}
+		});
+		
 		ll.addView(table);
 	}
 

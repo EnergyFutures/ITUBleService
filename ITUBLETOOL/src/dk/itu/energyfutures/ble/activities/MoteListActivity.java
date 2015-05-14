@@ -1,12 +1,11 @@
 package dk.itu.energyfutures.ble.activities;
 
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.TreeMap;
 
 import android.app.Activity;
 import android.content.ComponentName;
@@ -34,7 +33,7 @@ import dk.itu.energyfutures.ble.task.EmptyingBufferListner;
 
 public class MoteListActivity extends Activity implements PacketListListner, EmptyingBufferListner {
 	private final static String TAG = MoteListActivity.class.getSimpleName();
-	private HashMap<String, HashSet<AdvertisementPacket>> packets = new HashMap<String, HashSet<AdvertisementPacket>>();
+	private Map<String, HashSet<AdvertisementPacket>> packets = new TreeMap<String, HashSet<AdvertisementPacket>>();
 	private MyAdapter adapter = new MyAdapter(packets);
 	protected BluetoothLEBackgroundService service;
 	private boolean bound;

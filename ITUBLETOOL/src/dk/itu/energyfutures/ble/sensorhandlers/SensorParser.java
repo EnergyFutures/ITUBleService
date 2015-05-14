@@ -76,10 +76,8 @@ public class SensorParser {
 		}
 		encodedBytes = new byte[10];
 		int index = 0;
-		encodedBytes[index++] = 25; // 0b00011001
+		encodedBytes[index++] = 49; // 0b00110001 = coor, id and sample.freq is to be overridden
 		encodedBytes[index++] = (byte) coordinateIndex;
-		encodedBytes[index++] = 0;
-		encodedBytes[index++] = 0;
 		encodedBytes[index++] = (byte) (id & 0xff);
 		encodedBytes[index++] = (byte) ((id >> 8) & 0xff);
 		encodedBytes[index++] = (byte) (sampleFrequency & 0xff);

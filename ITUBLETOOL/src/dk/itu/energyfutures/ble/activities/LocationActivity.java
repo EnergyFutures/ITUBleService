@@ -39,7 +39,7 @@ import dk.itu.energyfutures.ble.task.JSONTask;
 import dk.itu.energyfutures.ble.task.WindowTask;
 
 public class LocationActivity extends Activity implements PacketListListner, EmptyingBufferListner {
-	private final static String TAG = LocationActivity.class.getSimpleName();
+	//private final static String TAG = LocationActivity.class.getSimpleName();
 	public static final String MOTE_LOCATION = "MOTE.LOCATION";
 	private List<AdvertisementPacket> packets = new ArrayList<AdvertisementPacket>();
 	private GridAdapter gridAdapter = new GridAdapter();
@@ -243,13 +243,13 @@ public class LocationActivity extends Activity implements PacketListListner, Emp
 			ts.setText(ITUConstants.dateFormat.format(advertisementPacket.getTimeStamp()));
 			TextView ct = (TextView) v.findViewById(R.id.coordinateText);
 			String coor = ITUConstants.getCoordinateStringFromEnum(advertisementPacket);
-			if (coor == "") {
+			if ("".equals(coor)) {
+				ct.setText("");
 				ct.setVisibility(View.GONE);
 			} else {
 				ct.setText(coor);
 				ct.setVisibility(View.VISIBLE);
 			}
-
 			v.setTag(advertisementPacket);
 			return v;
 		}
@@ -257,11 +257,11 @@ public class LocationActivity extends Activity implements PacketListListner, Emp
 
 	@Override
 	public void newPacketArrived(final AdvertisementPacket packet) {
-		if (location.equalsIgnoreCase(packet.getLocation())) {
+		if (location.equals(packet.getLocation())) {
+			final int index = packets.indexOf(packet);
 			this.runOnUiThread(new Runnable() {
 				@Override
 				public void run() {
-					int index = packets.indexOf(packet);
 					if (index >= 0) {
 						packets.set(index, packet);
 					} else {
@@ -305,15 +305,13 @@ public class LocationActivity extends Activity implements PacketListListner, Emp
 
 	@Override
 	public void PacketsDeprecated(final List<AdvertisementPacket> deprecatedPackets) {
-
 		this.runOnUiThread(new Runnable() {
 			@Override
 			public void run() {
 				boolean didDeprecation = false;
 				for (AdvertisementPacket packet : deprecatedPackets) {
-					if (packets.contains(packet)) {
+					if (packets.remove(packet)) {
 						didDeprecation = true;
-						packets.remove(packet);
 					}
 				}
 				if (didDeprecation) {

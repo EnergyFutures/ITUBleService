@@ -14,10 +14,10 @@ import org.apache.http.impl.client.DefaultHttpClient;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import android.util.Log;
 import dk.itu.energyfutures.ble.helpers.ITUConstants;
 import dk.itu.energyfutures.ble.sensorhandlers.MoteConfigParser;
 import dk.itu.energyfutures.ble.sensorhandlers.SensorParser;
-import android.util.Log;
 
 public class SMAPController {
 	private final static String TAG = SMAPController.class.getSimpleName();
@@ -27,42 +27,51 @@ public class SMAPController {
 	private static final String POST_META_URL = "http://130.226.142.195:8888/api/v1/bleot/addmeta";
 	private static final Map<String, int[]> idsMap = new HashMap<String, int[]>();
 	public static String payload = null;
-	public static void postReadingsToSmap(final byte[] data, final int length) {
+	public static void postReadingsToSmap(final byte[] data, final int length, final boolean completeReading) {
 		executor.submit(new Runnable() {
-			String myPayload = "";
+			StringBuffer myPayload = new StringBuffer();
 			@Override
 			public void run() {
 				try {
 					long time = System.currentTimeMillis();
 					Collection<MeasurementSmapContainer> measurementSmapContainers = MeasurementSmapContainer.processData(data, length);
 					for (MeasurementSmapContainer msc : measurementSmapContainers) {
-						JSONObject container = new JSONObject();
-						container.put("ID", msc.id);
-						container.put("Time", time);
-						JSONArray readings = new JSONArray();
-						for (int i = 0; i < msc.loop; i++) {
-							JSONArray reading = new JSONArray();
-							reading.put(msc.seqNrs[i]);
-							reading.put(msc.values[i]);
-							readings.put(reading);
+						try {
+							JSONObject container = new JSONObject();
+							container.put("ID", msc.id);
+							container.put("Time", time);
+							container.put("Completereading", completeReading);
+							JSONArray readings = new JSONArray();
+							for (int i = 0; i < msc.loop; i++) {
+								JSONArray reading = new JSONArray();
+								reading.put(msc.seqNrs[i]);
+								reading.put(msc.values[i]);
+								readings.put(reading);
+							}
+							container.put("Readings", readings);
+							HttpPost httpost = new HttpPost(POST_READINGS_URL);
+							myPayload.append(container.toString());
+							myPayload.append("\n\n");
+							StringEntity se = new StringEntity(container.toString());
+							httpost.setEntity(se);
+							httpost.setHeader("Content-type", "application/json");
+							DefaultHttpClient defaultHttpClient = new DefaultHttpClient();
+							HttpResponse response = defaultHttpClient.execute(httpost);
+							if (response.getStatusLine().getStatusCode() != 200) {
+								Log.e(TAG, "Error post meta values to server with response: " + response.getStatusLine().getStatusCode());
+							}
 						}
-						container.put("Readings", readings);
-						HttpPost httpost = new HttpPost(POST_READINGS_URL);
-						myPayload += container.toString();
-						StringEntity se = new StringEntity(container.toString());
-						httpost.setEntity(se);
-						httpost.setHeader("Content-type", "application/json");
-						HttpResponse response = new DefaultHttpClient().execute(httpost);
-						if (response.getStatusLine().getStatusCode() != 200) {
-							Log.e(TAG, "Error post meta values to server with response: " + response.getStatusLine().getStatusCode());
+						catch (Exception e) {
+							e.printStackTrace();
+							Log.e(TAG, "Error post value to server due to exception: " + e.getMessage());
 						}
 					}
 					Log.i(TAG, "PAYLOAD: " + myPayload);
-					payload = myPayload;
+					payload = myPayload.toString();
 				}
 				catch (Exception e) {
 					e.printStackTrace();
-					Log.e(TAG, "Error post value to server due to exception: " + e.getMessage());
+					Log.e(TAG, "Error processings readings due to exception: " + e.getMessage());
 				}
 			}
 		});

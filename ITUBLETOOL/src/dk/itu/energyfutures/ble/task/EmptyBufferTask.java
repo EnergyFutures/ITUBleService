@@ -10,7 +10,6 @@ import javax.mail.MessagingException;
 import javax.mail.PasswordAuthentication;
 import javax.mail.Session;
 import javax.mail.Transport;
-import javax.mail.internet.AddressException;
 import javax.mail.internet.InternetAddress;
 import javax.mail.internet.MimeMessage;
 
@@ -26,6 +25,7 @@ import android.util.Log;
 import dk.itu.energyfutures.ble.Application;
 import dk.itu.energyfutures.ble.helpers.GattAttributes;
 import dk.itu.energyfutures.ble.helpers.ITUConstants;
+import dk.itu.energyfutures.ble.packethandlers.AdvertisementPacket;
 import dk.itu.energyfutures.ble.smap.SMAPController;
 
 public class EmptyBufferTask implements Runnable, TaskDoneNotifer {
@@ -34,14 +34,17 @@ public class EmptyBufferTask implements Runnable, TaskDoneNotifer {
 	private BluetoothGattDescriptor readAllDescriptor;
 	private BluetoothGattCharacteristic readAllChar;
 	private Context context;
+	private AdvertisementPacket packet;
 	private List<TaskDoneListner> doneEmptyingBufferListners = new ArrayList<TaskDoneListner>();
 	private boolean done;
+	private boolean completeReading = false;
 	private int pointer = 0;
 	private byte[] values = new byte[55000];
 	private BluetoothGatt bleGatt;
 	private static final int WAIT_TIME = 1 * 60 * 1000;
 	private static final int THREAD_SLEEP = 1 * 1000;
 	private long timeOfLastActivity = System.currentTimeMillis();
+	private double timeOfStart;
 
 	public BluetoothDevice getDevice() {
 		return device;
@@ -53,6 +56,7 @@ public class EmptyBufferTask implements Runnable, TaskDoneNotifer {
 
 	@Override
 	public void run() {
+		timeOfStart = System.currentTimeMillis();
 		device.connectGatt(context, false, gattCallback);
 		Thread thisThread = Thread.currentThread();
 		try {
@@ -67,19 +71,28 @@ public class EmptyBufferTask implements Runnable, TaskDoneNotifer {
 			if((pointer % 8) != 0){
 				Log.e(TAG,"READINGS MALFORMED");
 			}else{
-				SMAPController.postReadingsToSmap(values, pointer);
-				Log.i(TAG,"SENDING E_MAIL");
-				StringBuffer sb = new StringBuffer();
-				sb.append("Device: " + device.getAddress());
-				sb.append("\nName: " + device.getName());
-				sb.append("\nNumber of values: " + (pointer / 8));
-				while(SMAPController.payload == null){
-					
+				if(pointer > 0){
+					SMAPController.postReadingsToSmap(values, pointer,completeReading);
+					Log.i(TAG,"SENDING E_MAIL");
+					StringBuffer sb = new StringBuffer();
+					sb.append("Device: " + device.getAddress());
+					sb.append("\nName: " + device.getName());
+					sb.append("\nLocation: " + packet.getLocation());
+					sb.append("\nBattery level: " + packet.getBatteryLevel());
+					sb.append("\nNumber of values: " + (pointer / 8));
+					sb.append("\nNumber of seconds to complete offload: " + ((System.currentTimeMillis() - timeOfStart) / 1000));
+					while(SMAPController.payload == null){
+						
+					}
+					if(!"".equals(SMAPController.payload)){
+						sb.append("\nPayload: \n" + SMAPController.payload);
+						SMAPController.payload = null;
+						sendMail(sb.toString());
+						Log.i(TAG,"E_MAIL SENT");
+					}else{
+						SMAPController.payload = null;
+					}
 				}
-				sb.append("\nPayload: " + SMAPController.payload);
-				SMAPController.payload = null;
-				sendMail(sb.toString());
-				Log.i(TAG,"E_MAIL SENT");
 			}
 			closeDown("Done... disconnecting");
 		}
@@ -133,12 +146,9 @@ public class EmptyBufferTask implements Runnable, TaskDoneNotifer {
 	    try {
 	        Message message = createMessage("OFF-LOADING", messageBody, session);
 	        Transport.send(message);
-	    } catch (AddressException e) {
-	        e.printStackTrace();
-	    } catch (MessagingException e) {
-	        e.printStackTrace();
-	    } catch (UnsupportedEncodingException e) {
-	        e.printStackTrace();
+	    } catch (Exception e){
+	    	Log.e(TAG,"Error sending e-mail due to exception: " + e.getMessage());
+	    	e.printStackTrace();
 	    }
 	}
 	
@@ -203,6 +213,7 @@ public class EmptyBufferTask implements Runnable, TaskDoneNotifer {
 			if (receivedBytes.length == 1 && receivedBytes[0] == 0 ) {
 				Log.i(TAG, "Received termination package, disable notification");
 				gatt.setCharacteristicNotification(readAllChar, false);
+				completeReading = true;
 				readAllDescriptor.setValue(BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE);
 				gatt.writeDescriptor(readAllDescriptor);
 			} else {
@@ -257,5 +268,10 @@ public class EmptyBufferTask implements Runnable, TaskDoneNotifer {
 	@Override
 	public void registerTaskDoneListner(TaskDoneListner listner) {
 		doneEmptyingBufferListners.add(listner);
+	}
+
+	public void setPacket(AdvertisementPacket packet) {
+		setDevice(packet.getDevice());
+		this.packet = packet;
 	}
 }

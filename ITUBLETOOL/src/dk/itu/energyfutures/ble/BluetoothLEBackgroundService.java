@@ -11,6 +11,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import android.app.Service;
 import android.bluetooth.BluetoothAdapter;
@@ -60,6 +61,7 @@ public class BluetoothLEBackgroundService extends Service implements PacketBroad
 	//private boolean doOffLoading = getOffLoadingBoolean();
 	private List<EmptyingBufferListner> emptyingBufferListners = new ArrayList<EmptyingBufferListner>();
 	public static AtomicBoolean toggle = new AtomicBoolean(false);
+	public static AtomicBoolean doReset = new AtomicBoolean(false);
 	// Device scan callback.
 	private BluetoothAdapter.LeScanCallback mLeScanCallback = new BluetoothAdapter.LeScanCallback() {
 		@Override
@@ -141,7 +143,7 @@ public class BluetoothLEBackgroundService extends Service implements PacketBroad
 										synchronized (bleTasks) {
 											if (!bleTasks.contains(adr) && bleTasks.size() == 0) {
 												EmptyBufferTask task = new EmptyBufferTask();
-												task.setDevice(packet.getDevice());
+												task.setPacket(packet);
 												task.setContext(getApplicationContext());
 												bleTasks.add(adr);
 												task.registerTaskDoneListner(BluetoothLEBackgroundService.this);
@@ -215,27 +217,31 @@ public class BluetoothLEBackgroundService extends Service implements PacketBroad
 				executor = Executors.newFixedThreadPool(6);
 				// gattExecutor = Executors.newSingleThreadExecutor();
 				executor.execute(new Runnable() {
-
 					private long timeSinceLastScanReset;
-
 					@Override
 					public void run() {
 						String myTag = "Ble scanner thread";
 						Log.v(myTag, "Starting fresh");
 						while (isRunnning.get() || isResetting.get()) {
 							try {
-								if (isResetting.get()) {
-									Thread.sleep(10000);
-									Log.v(myTag, "Found reset flag... sleeping");
+								while(isResetting.get() || doReset.get()){
+									Log.v(myTag, "Found a reset flag... sleeping");
+									Thread.sleep(1000);
 								}
-								int counter = 0;
+								int counter = 1;
 								while (!btAdapter.startLeScan(mLeScanCallback)) {
-									Thread.sleep(1500);
-									if (counter++ > 3) {
+									Log.v(myTag, "Could not start le-scan... sleeping");
+									btAdapter.stopLeScan(mLeScanCallback);
+									if (counter++ == 4) {
 										Log.v(myTag, "Could not start le-scan... breaking out");
+										doReset.set(true);
 										break;
 									}
-									Log.v(myTag, "Could not start le-scan... sleeping");
+									Thread.sleep(3000);
+								}
+								if(doReset.get()){
+									Log.v(myTag, "Found doReset flag... continue");
+									continue;
 								}
 								// Log.v(myTag, "Sleeping while scanning");
 								timeSinceLastScanReset = System.currentTimeMillis();
@@ -300,18 +306,24 @@ public class BluetoothLEBackgroundService extends Service implements PacketBroad
 					public void run() {
 						while (isRunnning.get() || isResetting.get()) {
 							try {
-								if (System.currentTimeMillis() - timeSinceLastBTReset < SLEEP_BT_CHIP_RESET) {
-									Thread.sleep(SLEEP_BT_CHIP_RESET);
+								if (!doReset.get() && (System.currentTimeMillis() - timeSinceLastBTReset < SLEEP_BT_CHIP_RESET)) {
+									while(System.currentTimeMillis() - timeSinceLastBTReset < SLEEP_BT_CHIP_RESET){
+										Thread.sleep(5000);
+										if(doReset.get()){
+											break;
+										}
+									}
 								} else {
 									Thread.sleep(1000);
 								}
-								if (Application.isDataSink() && bleTasks.size() == 0) {
+								if ((Application.isDataSink() && bleTasks.size() == 0) || doReset.get()) {
 									if (!isRunnning.get()) {
 										break;
 									}
 									synchronized (bleTasks) {
 										if (bleTasks.size() == 0) {
 											isResetting.set(true);
+											doReset.set(false);
 											isRunnning.set(false);
 											btAdapter.stopLeScan(mLeScanCallback);
 											Application.showLongToastOnUI("RESETTING BT ADAPTOR");

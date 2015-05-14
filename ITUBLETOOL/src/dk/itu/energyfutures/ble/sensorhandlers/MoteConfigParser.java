@@ -8,6 +8,8 @@ public class MoteConfigParser {
 	private String locationName;
 	private int advFreqInSec;
 	private int percentageForBufferFull;
+	private int connectedTransmitPower;
+	private int nonConnectedTransmitPower;
 	private byte[] encodedBytes;
 
 	public MoteConfigParser(byte[] content) throws UnsupportedEncodingException {
@@ -26,10 +28,12 @@ public class MoteConfigParser {
 				break;
 			}
 		}
-		this.deviceName = new String(content, 0, firstZeroIndex+1, "UTF-8");
-		this.locationName = new String(content, firstZeroIndex+1, secondZeroIndex-firstZeroIndex, "UTF-8");
+		this.deviceName = new String(content, 0, firstZeroIndex, "UTF-8");
+		this.locationName = new String(content, firstZeroIndex+1, secondZeroIndex-firstZeroIndex-1, "UTF-8");
 		this.advFreqInSec = (int) content[secondZeroIndex+1];
 		this.percentageForBufferFull = (int) content[secondZeroIndex+2];
+		this.connectedTransmitPower = (int) content[secondZeroIndex+3];
+		this.nonConnectedTransmitPower = (int) content[secondZeroIndex+4];
 	}
 
 	public String getDeviceName() {
@@ -75,10 +79,16 @@ public class MoteConfigParser {
 		if(nameLength + locationLength + nameLengthBytes > 13){
 			throw new RuntimeException("Length of device name and location must be under 13");
 		}
+		if(connectedTransmitPower < -16 || connectedTransmitPower > 4 || connectedTransmitPower % 4 != 0){
+			throw new RuntimeException("Connected transmit power must be between -16 and 4 (increaments of 4)");
+		}
+		if(nonConnectedTransmitPower < -16 || nonConnectedTransmitPower > 4 || nonConnectedTransmitPower % 4 != 0){
+			throw new RuntimeException("Non-Connected transmit power must be between -16 and 4 (increaments of 4)");
+		}
 		//header = 1, +1 is for termination zero, +2 is for the freq and buffer full level
-		encodedBytes = new byte[1 + nameLength + 1 + locationLength + 1 + 2];
+		encodedBytes = new byte[1 + nameLength + 1 + locationLength + 1 + 2 + 2];
 		int i = 0;
-		encodedBytes[i++] = 15; // 0b00001111
+		encodedBytes[i++] = 63; // 0b00111111
 		byte[] nameBytes = deviceName.getBytes("UTF-8");
 		for(int j = 0;j < nameBytes.length; j++){
 			encodedBytes[i++] = nameBytes[j];
@@ -90,6 +100,24 @@ public class MoteConfigParser {
 		}
 		encodedBytes[i++] = '\0';
 		encodedBytes[i++] = (byte) (advFreqInSec & 0xff);
-		encodedBytes[i] = (byte) (percentageForBufferFull & 0xff);
+		encodedBytes[i++] = (byte) (percentageForBufferFull & 0xff);
+		encodedBytes[i++] = (byte) (connectedTransmitPower & 0xff);
+		encodedBytes[i] = (byte) (nonConnectedTransmitPower & 0xff);
+	}
+
+	public int getNonConnectedTransmitPower() {
+		return nonConnectedTransmitPower;
+	}
+
+	public void setNonConnectedTransmitPower(int nonConnectedTransmitPower) {
+		this.nonConnectedTransmitPower = nonConnectedTransmitPower;
+	}
+
+	public int getConnectedTransmitPower() {
+		return connectedTransmitPower;
+	}
+
+	public void setConnectedTransmitPower(int connectedTransmitPower) {
+		this.connectedTransmitPower = connectedTransmitPower;
 	}
 }
