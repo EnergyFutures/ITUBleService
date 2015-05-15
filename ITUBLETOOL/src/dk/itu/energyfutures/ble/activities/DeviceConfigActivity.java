@@ -352,12 +352,15 @@ public class DeviceConfigActivity extends Activity implements ConfigTaskListner 
 
 			@Override
 			public void afterTextChanged(Editable s) {
-				String num = s.toString();
-				if (!"".equals(num)) {
-					moteConfigParser.setConnectedTransmitPower(Integer.parseInt(num));
-				} else {
+				try {
+					String num = s.toString();
+					int val = Integer.parseInt(num);
+					moteConfigParser.setConnectedTransmitPower(val);
+				}
+				catch (NumberFormatException e) {
 					moteConfigParser.setConnectedTransmitPower(100);
 				}
+				
 			}
 		});
 		
@@ -373,10 +376,12 @@ public class DeviceConfigActivity extends Activity implements ConfigTaskListner 
 
 			@Override
 			public void afterTextChanged(Editable s) {
-				String num = s.toString();
-				if (!"".equals(num)) {
-					moteConfigParser.setNonConnectedTransmitPower(Integer.parseInt(num));
-				} else {
+				try {
+					String num = s.toString();
+					int val = Integer.parseInt(num);
+					moteConfigParser.setNonConnectedTransmitPower(val);
+				}
+				catch (NumberFormatException e) {
 					moteConfigParser.setNonConnectedTransmitPower(100);
 				}
 			}
