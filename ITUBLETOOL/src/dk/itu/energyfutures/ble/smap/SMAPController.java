@@ -22,7 +22,7 @@ import dk.itu.energyfutures.ble.sensorhandlers.SensorParser;
 public class SMAPController {
 	private final static String TAG = SMAPController.class.getSimpleName();
 	private static ExecutorService executor = Executors.newFixedThreadPool(3);
-	private static final String POST_READINGS_URL = "http://130.226.142.195:8888/api/v1/bleot/addreadings";
+	private static final String POST_READINGS_URL = "http://130.226.142.195/api/v1/bleot/addreadings";
 	private static final String GET_IDS_URL = "http://130.226.142.195:8888/api/v1/bleot/generateids";
 	private static final String POST_META_URL = "http://130.226.142.195:8888/api/v1/bleot/addmeta";
 	private static final Map<String, int[]> idsMap = new HashMap<String, int[]>();
@@ -40,7 +40,7 @@ public class SMAPController {
 							JSONObject container = new JSONObject();
 							container.put("ID", msc.id);
 							container.put("Time", time);
-							container.put("Completereading", completeReading);
+							container.put("Complete", completeReading);
 							JSONArray readings = new JSONArray();
 							for (int i = 0; i < msc.loop; i++) {
 								JSONArray reading = new JSONArray();

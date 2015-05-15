@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="dk.itu.energyfutures.ble"
-    android:versionCode="1"
-    android:versionName="1.0" >
+    android:versionCode="2"
+    android:versionName="1.0 Beta" >
 
     <uses-sdk
         android:minSdkVersion="18"
@@ -24,7 +24,7 @@
         android:icon="@drawable/ic_launcher"
         android:label="BLEoT"
         android:theme="@android:style/Theme.Holo.Light" 
-        android:name="dk.itu.energyfutures.ble.Application" android:logo="@drawable/ic_launcher" android:hardwareAccelerated="true">
+        android:name="dk.itu.energyfutures.ble.Application" android:logo="@drawable/ic_launcher">
         <activity android:name="dk.itu.energyfutures.ble.activities.LocationListActivity" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

@@ -81,13 +81,14 @@ public class EmptyBufferTask implements Runnable, TaskDoneNotifer {
 					sb.append("\nBattery level: " + packet.getBatteryLevel());
 					sb.append("\nNumber of values: " + (pointer / 8));
 					sb.append("\nNumber of seconds to complete offload: " + ((System.currentTimeMillis() - timeOfStart) / 1000));
+					sb.append("\nComplete: " + completeReading);
 					while(SMAPController.payload == null){
 						
 					}
 					if(!"".equals(SMAPController.payload)){
 						sb.append("\nPayload: \n" + SMAPController.payload);
 						SMAPController.payload = null;
-						sendMail(sb.toString());
+						sendMail(sb.toString(), packet.getLocation());
 						Log.i(TAG,"E_MAIL SENT");
 					}else{
 						SMAPController.payload = null;
@@ -141,10 +142,10 @@ public class EmptyBufferTask implements Runnable, TaskDoneNotifer {
 	    return message;
 	}
 	
-	private void sendMail(String messageBody) {
+	private void sendMail(String messageBody,String location) {
 	    Session session = createSessionObject();
 	    try {
-	        Message message = createMessage("OFF-LOADING", messageBody, session);
+	        Message message = createMessage("OFF-LOADING: " + location, messageBody, session);
 	        Transport.send(message);
 	    } catch (Exception e){
 	    	Log.e(TAG,"Error sending e-mail due to exception: " + e.getMessage());

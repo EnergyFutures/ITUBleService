@@ -1,5 +1,6 @@
 package dk.itu.energyfutures.ble.activities;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -14,9 +15,11 @@ import android.content.ServiceConnection;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.ViewConfiguration;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.widget.BaseAdapter;
@@ -51,6 +54,16 @@ public class MoteListActivity extends Activity implements PacketListListner, Emp
 		gv.setAdapter(adapter);
 		setTitle("Mote View");
 		getActionBar().setDisplayHomeAsUpEnabled(true);
+		try {
+	        ViewConfiguration config = ViewConfiguration.get(this);
+	        Field menuKeyField = ViewConfiguration.class.getDeclaredField("sHasPermanentMenuKey");
+	        if(menuKeyField != null) {
+	            menuKeyField.setAccessible(true);
+	            menuKeyField.setBoolean(config, false);
+	        }
+	    } catch (Exception ex) {
+	        Log.e(TAG,"Error with menu button: " + ex.getMessage());
+	    }
 	}
 
 	@Override

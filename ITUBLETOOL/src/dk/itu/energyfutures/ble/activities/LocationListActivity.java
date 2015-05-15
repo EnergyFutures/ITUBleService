@@ -1,5 +1,6 @@
 package dk.itu.energyfutures.ble.activities;
 
+import java.lang.reflect.Field;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -14,10 +15,12 @@ import android.content.ServiceConnection;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.text.InputType;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.ViewConfiguration;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.widget.BaseAdapter;
@@ -34,7 +37,7 @@ import dk.itu.energyfutures.ble.packethandlers.PacketListListner;
 import dk.itu.energyfutures.ble.task.EmptyingBufferListner;
 
 public class LocationListActivity extends Activity implements PacketListListner, EmptyingBufferListner {
-	//private final static String TAG = LocationListActivity.class.getSimpleName();
+	private final static String TAG = LocationListActivity.class.getSimpleName();
 	private Set<String> packets = new TreeSet<String>();
 	private MyAdapter adapter = new MyAdapter();
 	private BluetoothLEBackgroundService service;
@@ -51,10 +54,20 @@ public class LocationListActivity extends Activity implements PacketListListner,
 				return;
 			}
 		}
-		getActionBar().setTitle("ITU BLE TOOL");
+		getActionBar().setTitle("BLEoT");
 		setContentView(R.layout.location_list_view);
 		GridView gv = (GridView) findViewById(R.id.gridView3);
 		gv.setAdapter(adapter);
+		try {
+	        ViewConfiguration config = ViewConfiguration.get(this);
+	        Field menuKeyField = ViewConfiguration.class.getDeclaredField("sHasPermanentMenuKey");
+	        if(menuKeyField != null) {
+	            menuKeyField.setAccessible(true);
+	            menuKeyField.setBoolean(config, false);
+	        }
+	    } catch (Exception ex) {
+	        Log.e(TAG,"Error with menu button: " + ex.getMessage());
+	    }
 		// this.setListAdapter(adapter);
 		// this.getListView().setDivider(getResources().getDrawable(R.drawable.divider));
 		// this.getListView().setDividerHeight((int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 2, getResources().getDisplayMetrics()));

@@ -1,5 +1,6 @@
 package dk.itu.energyfutures.ble.activities;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -15,9 +16,11 @@ import android.content.ServiceConnection;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.ViewConfiguration;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.widget.BaseAdapter;
@@ -39,7 +42,7 @@ import dk.itu.energyfutures.ble.task.JSONTask;
 import dk.itu.energyfutures.ble.task.WindowTask;
 
 public class LocationActivity extends Activity implements PacketListListner, EmptyingBufferListner {
-	//private final static String TAG = LocationActivity.class.getSimpleName();
+	private final static String TAG = LocationActivity.class.getSimpleName();
 	public static final String MOTE_LOCATION = "MOTE.LOCATION";
 	private List<AdvertisementPacket> packets = new ArrayList<AdvertisementPacket>();
 	private GridAdapter gridAdapter = new GridAdapter();
@@ -63,6 +66,16 @@ public class LocationActivity extends Activity implements PacketListListner, Emp
 		}
 		setTitle("Location " + location);
 		getActionBar().setDisplayHomeAsUpEnabled(true);
+		try {
+	        ViewConfiguration config = ViewConfiguration.get(this);
+	        Field menuKeyField = ViewConfiguration.class.getDeclaredField("sHasPermanentMenuKey");
+	        if(menuKeyField != null) {
+	            menuKeyField.setAccessible(true);
+	            menuKeyField.setBoolean(config, false);
+	        }
+	    } catch (Exception ex) {
+	        Log.e(TAG,"Error with menu button: " + ex.getMessage());
+	    }
 	}
 
 	@Override
