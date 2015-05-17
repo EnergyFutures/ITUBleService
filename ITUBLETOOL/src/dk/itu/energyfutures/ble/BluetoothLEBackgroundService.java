@@ -11,14 +11,15 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import android.app.Service;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.Binder;
 import android.os.IBinder;
 import android.os.PowerManager;
@@ -40,7 +41,7 @@ import dk.itu.energyfutures.ble.task.EmptyingBufferNotifer;
 import dk.itu.energyfutures.ble.task.ParseJsonMoteTask;
 import dk.itu.energyfutures.ble.task.TaskDoneListner;
 
-public class BluetoothLEBackgroundService extends Service implements PacketBroadcaster, TaskDoneListner, EmptyingBufferNotifer {
+public class BluetoothLEBackgroundService extends Service implements PacketBroadcaster, TaskDoneListner, EmptyingBufferNotifer, DataSinkFlagChangedListner {
 	private final static String TAG = BluetoothLEBackgroundService.class.getSimpleName();
 
 	protected static final String NEW_PACKET = "NEW_ADV_PACKET";
@@ -140,6 +141,10 @@ public class BluetoothLEBackgroundService extends Service implements PacketBroad
 									Log.v(TAG, "Packet id: " + packet.getId());
 									if (packet.isBufferNeedsCleaning() && isRunnning.get() && Application.isDataSink()) {
 										Log.i(TAG, "Packet: " + packet);
+										if(!Application.isConnectedToInternet()){
+											Log.i(TAG, "No internet!");
+											return;
+										}
 										synchronized (bleTasks) {
 											if (!bleTasks.contains(adr) && bleTasks.size() == 0) {
 												EmptyBufferTask task = new EmptyBufferTask();
@@ -168,6 +173,8 @@ public class BluetoothLEBackgroundService extends Service implements PacketBroad
 			}
 		}
 	};
+
+	private BroadcastReceiver networkChangeReceiver;
 
 	@Override
 	public void onCreate() {
@@ -209,10 +216,9 @@ public class BluetoothLEBackgroundService extends Service implements PacketBroad
 		if (!isRunnning.get()) {
 			isRunnning.set(true);
 			if (Application.isDataSink()) {
-				PowerManager pm = (PowerManager) getApplicationContext().getSystemService(Context.POWER_SERVICE);
-				wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, TAG);
-				wakeLock.acquire();
+				enableDataSinkFeatures();
 			}
+			Application.instance.registerDataSinkFlagChangedListner(this);
 			if (initialize()) {
 				executor = Executors.newFixedThreadPool(6);
 				// gattExecutor = Executors.newSingleThreadExecutor();
@@ -360,6 +366,18 @@ public class BluetoothLEBackgroundService extends Service implements PacketBroad
 		}
 	}
 
+	public void enableDataSinkFeatures() {
+		if(networkChangeReceiver == null){
+			networkChangeReceiver = new NetworkChangeReceiver();
+		}
+		registerReceiver(networkChangeReceiver,new IntentFilter("android.net.conn.CONNECTIVITY_CHANGE"));
+		if(wakeLock == null){
+			PowerManager pm = (PowerManager) getApplicationContext().getSystemService(Context.POWER_SERVICE);
+			wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, TAG);
+		}
+		wakeLock.acquire();
+	}
+
 	@Override
 	public void onDestroy() {
 		super.onDestroy();
@@ -370,9 +388,8 @@ public class BluetoothLEBackgroundService extends Service implements PacketBroad
 
 	private void shutdownAndCleanup() {
 		isRunnning.set(false);
-		if (Application.isDataSink() && wakeLock != null) {
-			wakeLock.release();
-		}
+		disableDataSinkFeatures();
+		Application.instance.unRegisterDataSinkFlagChangedListner(this);
 		btAdapter.stopLeScan(mLeScanCallback);
 		if (executor != null) {
 			executor.shutdownNow();
@@ -382,6 +399,16 @@ public class BluetoothLEBackgroundService extends Service implements PacketBroad
 			catch (InterruptedException e) {}
 		}
 		Application.emptyingBuffer = false;
+	}
+
+	private void disableDataSinkFeatures() {
+		if(networkChangeReceiver != null){
+			unregisterReceiver(networkChangeReceiver);
+			networkChangeReceiver = null;
+		}
+		if (wakeLock != null) {
+			wakeLock.release();
+		}
 	}
 
 	// BINDER PART
@@ -472,5 +499,14 @@ public class BluetoothLEBackgroundService extends Service implements PacketBroad
 	@Override
 	public void removeNewBornPacketListner(PacketListListner listner) {
 		newBornlistners.remove(listner);
+	}
+
+	@Override
+	public void onDataSinkFlagChanged(boolean state) {
+		if(state){
+			enableDataSinkFeatures();
+		}else{
+			disableDataSinkFeatures();
+		}
 	}
 }

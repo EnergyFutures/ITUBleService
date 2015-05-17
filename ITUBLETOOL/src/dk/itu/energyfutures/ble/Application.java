@@ -1,15 +1,20 @@
 package dk.itu.energyfutures.ble;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.os.Handler;
 import android.widget.Toast;
 import dk.itu.energyfutures.ble.helpers.ITUConstants;
 
-public class Application extends android.app.Application{
+public class Application extends android.app.Application implements DataSinkFlagChangedNotifier{
 	private static SharedPreferences sharedPreferences;
 	private static Context applicationContext;
 	private static Boolean dataSink;
@@ -17,13 +22,20 @@ public class Application extends android.app.Application{
 	private static Handler handler;
 	public static boolean emptyingBuffer = false;
 	private static Boolean configNormaleMotes;
-
+	public static AtomicBoolean connectedToInternet = new AtomicBoolean(false);
+	public static List<DataSinkFlagChangedListner> dataSinkFlagListners;
+	public static Application instance;
+	
 	@Override
 	public void onCreate() {
 		super.onCreate();
 		applicationContext = getApplicationContext();
 		sharedPreferences = getSharedPreferences(this.getClass().getSimpleName(), MODE_PRIVATE);
 		handler = new Handler(applicationContext.getMainLooper());
+		NetworkInfo activeNetwork =((ConnectivityManager) applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE)).getNetworkInfo(ConnectivityManager.TYPE_WIFI);
+		connectedToInternet.set(activeNetwork != null && activeNetwork.isConnected());
+		dataSinkFlagListners = new ArrayList<DataSinkFlagChangedListner>();
+		Application.instance = this;
 	}
 	
 	public static void showLongToast(String msg){
@@ -115,6 +127,9 @@ public class Application extends android.app.Application{
 		}
 		Application.putBoolean(ITUConstants.DEVICE_IS_A_GATEWAY_KEY, !dataSink);
 		dataSink = !dataSink;
+		for(DataSinkFlagChangedListner listner : dataSinkFlagListners){
+			listner.onDataSinkFlagChanged(dataSink);
+		}
 		return dataSink;
 	}
 
@@ -166,5 +181,19 @@ public class Application extends android.app.Application{
 		Application.putBoolean(ITUConstants.ENABLE_CONFIG_OF_NORMAL_MOTES, !configNormaleMotes);
 		configNormaleMotes = !configNormaleMotes;
 		return configNormaleMotes;
+	}
+	
+	public static boolean isConnectedToInternet(){
+		return connectedToInternet.get();
+	}
+
+	@Override
+	public void registerDataSinkFlagChangedListner(DataSinkFlagChangedListner listner) {
+		dataSinkFlagListners.add(listner);
+	}
+
+	@Override
+	public void unRegisterDataSinkFlagChangedListner(DataSinkFlagChangedListner listner) {
+		dataSinkFlagListners.remove(listner);
 	}
 }

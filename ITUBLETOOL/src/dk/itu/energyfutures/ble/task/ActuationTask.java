@@ -10,6 +10,7 @@ import android.bluetooth.BluetoothProfile;
 import android.content.Context;
 import android.os.AsyncTask;
 import android.util.Log;
+import dk.itu.energyfutures.ble.Application;
 import dk.itu.energyfutures.ble.BluetoothLEBackgroundService;
 import dk.itu.energyfutures.ble.helpers.ITUConstants;
 import dk.itu.energyfutures.ble.packethandlers.AdvertisementPacket;
@@ -43,6 +44,10 @@ public class ActuationTask extends AsyncTask<Void, Void, Void> {
 
 	@Override
 	protected Void doInBackground(Void... params) {
+		if(!Application.isConnectedToInternet()){
+			Log.i(TAG, "No internet!");
+			return null;
+		}
 		service.addTaskAdr(device.getAddress());
 		device.connectGatt(context, false, gattCallback);
 		long time = System.currentTimeMillis();

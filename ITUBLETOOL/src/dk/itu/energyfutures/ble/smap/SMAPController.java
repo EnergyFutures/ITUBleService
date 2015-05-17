@@ -15,6 +15,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import android.util.Log;
+import dk.itu.energyfutures.ble.Application;
 import dk.itu.energyfutures.ble.helpers.ITUConstants;
 import dk.itu.energyfutures.ble.sensorhandlers.MoteConfigParser;
 import dk.itu.energyfutures.ble.sensorhandlers.SensorParser;
@@ -34,6 +35,10 @@ public class SMAPController {
 			public void run() {
 				try {
 					long time = System.currentTimeMillis();
+					if(!Application.isConnectedToInternet()){
+						Log.i(TAG, "No internet! No SMAP");
+						return;
+					}
 					Collection<MeasurementSmapContainer> measurementSmapContainers = MeasurementSmapContainer.processData(data, length);
 					for (MeasurementSmapContainer msc : measurementSmapContainers) {
 						try {
