@@ -205,6 +205,11 @@ public class MoteListActivity extends Activity implements PacketListListner, Emp
 		@Override
 		public void onClick(View v) {
 			if(v != null && v.getTag() != null){
+				if(!Application.isConnectedToInternet()){
+					Log.i(TAG, "No internet! No CONFIG");
+					Application.showLongToast("You have NO INTERNET connection, hence it makes no sense to configure a device");
+					return;
+				}
 				AdvertisementPacket tag = (AdvertisementPacket) v.getTag();
 				Intent intent = new Intent(MoteListActivity.this, DeviceConfigActivity.class);
 				intent.putExtra(DeviceConfigActivity.DEVICE_ADR, tag.getDevice().getAddress());
@@ -217,7 +222,7 @@ public class MoteListActivity extends Activity implements PacketListListner, Emp
 	@Override
 	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
 		if (requestCode == CONFIG_DEVICE_REQUEST) {
-			if (resultCode == RESULT_OK) {
+			if (resultCode == RESULT_OK && bound && service != null) {
 				String deviceAdr = data.getStringExtra(DeviceConfigActivity.DEVICE_ADR);
 				service.getNewBornPackets().remove(deviceAdr);
 				packets.remove(deviceAdr);

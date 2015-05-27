@@ -63,6 +63,7 @@ public class BluetoothLEBackgroundService extends Service implements PacketBroad
 	private List<EmptyingBufferListner> emptyingBufferListners = new ArrayList<EmptyingBufferListner>();
 	public static AtomicBoolean toggle = new AtomicBoolean(false);
 	public static AtomicBoolean doReset = new AtomicBoolean(false);
+	public static boolean isNexus = Devices.getDeviceName().equalsIgnoreCase("Asus Nexus 7 (2013)");
 	// Device scan callback.
 	private BluetoothAdapter.LeScanCallback mLeScanCallback = new BluetoothAdapter.LeScanCallback() {
 		@Override
@@ -221,9 +222,10 @@ public class BluetoothLEBackgroundService extends Service implements PacketBroad
 			Application.instance.registerDataSinkFlagChangedListner(this);
 			if (initialize()) {
 				executor = Executors.newFixedThreadPool(6);
-				// gattExecutor = Executors.newSingleThreadExecutor();
 				executor.execute(new Runnable() {
 					private long timeSinceLastScanReset;
+					private long timeSinceLastPause = System.currentTimeMillis();
+					int counter = 0;
 					@Override
 					public void run() {
 						String myTag = "Ble scanner thread";
@@ -234,7 +236,7 @@ public class BluetoothLEBackgroundService extends Service implements PacketBroad
 									Log.v(myTag, "Found a reset flag... sleeping");
 									Thread.sleep(1000);
 								}
-								int counter = 1;
+								counter = 0;
 								while (!btAdapter.startLeScan(mLeScanCallback)) {
 									Log.v(myTag, "Could not start le-scan... sleeping");
 									btAdapter.stopLeScan(mLeScanCallback);
@@ -243,22 +245,26 @@ public class BluetoothLEBackgroundService extends Service implements PacketBroad
 										doReset.set(true);
 										break;
 									}
-									Thread.sleep(3000);
+									Thread.sleep(1000);
 								}
 								if(doReset.get()){
 									Log.v(myTag, "Found doReset flag... continue");
 									continue;
 								}
-								// Log.v(myTag, "Sleeping while scanning");
 								timeSinceLastScanReset = System.currentTimeMillis();
-								while ((!moteFound.get() && ((System.currentTimeMillis() - timeSinceLastScanReset) < 5000)) || ((System.currentTimeMillis() - timeSinceLastScanReset) < 1500)) {
+								while (((System.currentTimeMillis() - timeSinceLastScanReset) < getMilisecFromSec(2)) || (!moteFound.get() && (timeSinceLastScanReset - timeSinceLastPause < getMilisecFromSec(10)))) {
 									if (!isRunnning.get()) {
 										break;
 									}
-									Thread.sleep(100);
+									Thread.sleep(1000);
 								}
 								moteFound.set(false);
 								btAdapter.stopLeScan(mLeScanCallback);
+								if(!isNexus && ((System.currentTimeMillis() - timeSinceLastPause) >= getMilisecFromSec(10+counter)) && isRunnning.get()){
+									Log.v(myTag, "Sleeping for pause");
+									Thread.sleep(getMilisecFromSec(30));
+									timeSinceLastPause = System.currentTimeMillis();
+								}
 							}
 							catch (Throwable e) {
 								if (!(e instanceof InterruptedException)) {
@@ -269,23 +275,21 @@ public class BluetoothLEBackgroundService extends Service implements PacketBroad
 					}
 				});
 				executor.execute(new Runnable() {
-					long oneMin = 60 * 1000;
-
+					long sleepBetweenCleaning = getMilisecFromSec(120);
 					@Override
 					public void run() {
 						while (isRunnning.get() || isResetting.get()) {
 							try {
-								Thread.sleep(oneMin);// 1 min
-								Application.showShortToastOnUI("Cleaning old packets");
+								Thread.sleep(sleepBetweenCleaning);// 1 min
 								List<AdvertisementPacket> deprecated = new ArrayList<AdvertisementPacket>();
 								long time = System.currentTimeMillis();
 								for (AdvertisementPacket packet : packets.values()) {
-									if (time - packet.getTimeStamp().getTime() >= oneMin) {
+									if (time - packet.getTimeStamp().getTime() >= sleepBetweenCleaning) {
 										deprecated.add(packet);
 									}
 								}
 								for (AdvertisementPacket packet : newBornPackets.values()) {
-									if (time - packet.getTimeStamp().getTime() >= oneMin) {
+									if (time - packet.getTimeStamp().getTime() >= sleepBetweenCleaning) {
 										deprecated.add(packet);
 									}
 								}
@@ -314,7 +318,7 @@ public class BluetoothLEBackgroundService extends Service implements PacketBroad
 							try {
 								if (!doReset.get() && (System.currentTimeMillis() - timeSinceLastBTReset < SLEEP_BT_CHIP_RESET)) {
 									while(System.currentTimeMillis() - timeSinceLastBTReset < SLEEP_BT_CHIP_RESET){
-										Thread.sleep(5000);
+										Thread.sleep(getMilisecFromSec(5));
 										if(doReset.get()){
 											break;
 										}
@@ -335,7 +339,7 @@ public class BluetoothLEBackgroundService extends Service implements PacketBroad
 											Application.showLongToastOnUI("RESETTING BT ADAPTOR");
 											Log.i(TAG, "RESETTING BT ADAPTOR");
 											btAdapter.disable();
-											Thread.sleep(10000); // 5 sec
+											Thread.sleep(getMilisecFromSec(10)); // 5 sec
 											while (!btAdapter.enable()) {
 												Thread.sleep(1000);
 												Log.i(TAG, "ERROR RESETTING ADAPTOR..sleeping");
@@ -468,7 +472,7 @@ public class BluetoothLEBackgroundService extends Service implements PacketBroad
 			Log.v(TAG, "Nexus device found");
 			return 3 * 60 * 1000; //3 min
 		}
-		return 60 * 60 * 1000; //one hour
+		return 15 * 60 * 1000; //15 min
 	}
 
 	@Override
@@ -508,5 +512,9 @@ public class BluetoothLEBackgroundService extends Service implements PacketBroad
 		}else{
 			disableDataSinkFeatures();
 		}
+	}
+	
+	public static long getMilisecFromSec(final double numberOfSeconds){
+		return (long) (numberOfSeconds * 1000);
 	}
 }

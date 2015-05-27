@@ -12,6 +12,7 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.util.Log;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.ViewGroup;
@@ -198,6 +199,11 @@ public class DeviceConfigActivity extends Activity implements ConfigTaskListner 
 			@Override
 			public void onClick(View v) {
 				try {
+					if(!Application.isConnectedToInternet()){
+						Log.i(TAG, "No internet! No CONFIG");
+						Application.showLongToast("You have NO INTERNET connection, hence it makes no sense to configure a device");
+						return;
+					}
 					configTask.writeConfigAndExit(moteConfigParser, sensorParsers);
 					Application.showLongToast("Configuration sent");
 					Intent intent = new Intent();

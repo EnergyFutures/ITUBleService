@@ -191,16 +191,24 @@ public class ConfigTask extends AsyncTask<Void, String, Void> implements ConfigT
 		configChar.setValue(moteConfig.getEncodedBytes());
 		
 		int sensorSize =  sensors.size();
-		int[] ids = SMAPController.getIdsForAdr(deviceAdr);
-		if(ids == null){
-			SMAPController.fetchIdsFromSmap(sensorSize, deviceAdr);
-			throw new RuntimeException("Could not retrive ids from backend, please try again");
+		if("NEWBORN".equals(device.getName())){
+			int[] ids = SMAPController.getIdsForAdr(deviceAdr);
+			if(ids == null){
+				SMAPController.fetchIdsFromSmap(sensorSize, deviceAdr);
+				throw new RuntimeException("Could not retrive ids from backend, please try again");
+			}
+			for(int i = 0; i < sensorSize; i++){
+				SensorParser sensorParser = sensorParsers.get(i);
+				sensorParser.setIdAndEncode(ids[i]);
+				sensors.get(i).setValue(sensorParser.getEncodedBytes());
+			}
+		}else{
+			for(int i = 0; i < sensorSize; i++){
+				SensorParser sensorParser = sensorParsers.get(i);
+				sensorParser.setIdAndEncode(sensorParser.getId());
+				sensors.get(i).setValue(sensorParser.getEncodedBytes());
+			}
 		}
-		for(int i = 0; i < sensorSize; i++){
-			sensorParsers.get(i).setIdAndEncode(ids[i]);
-			sensors.get(i).setValue(sensorParsers.get(i).getEncodedBytes());
-		}
-		
 		SMAPController.postMetaDataToSmap(moteConfig, sensorParsers, deviceAdr);
 		if(bleGatt != null){
 			bleGatt.writeCharacteristic(sensors.get(writeIndex++));

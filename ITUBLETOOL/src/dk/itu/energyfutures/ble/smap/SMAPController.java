@@ -16,6 +16,7 @@ import org.json.JSONObject;
 
 import android.util.Log;
 import dk.itu.energyfutures.ble.Application;
+import dk.itu.energyfutures.ble.email.EmailSender;
 import dk.itu.energyfutures.ble.helpers.ITUConstants;
 import dk.itu.energyfutures.ble.sensorhandlers.MoteConfigParser;
 import dk.itu.energyfutures.ble.sensorhandlers.SensorParser;
@@ -24,8 +25,8 @@ public class SMAPController {
 	private final static String TAG = SMAPController.class.getSimpleName();
 	private static ExecutorService executor = Executors.newFixedThreadPool(3);
 	private static final String POST_READINGS_URL = "http://130.226.142.195/api/v1/bleot/addreadings";
-	private static final String GET_IDS_URL = "http://130.226.142.195:8888/api/v1/bleot/generateids";
-	private static final String POST_META_URL = "http://130.226.142.195:8888/api/v1/bleot/addmeta";
+	private static final String GET_IDS_URL = "http://130.226.142.195/api/v1/bleot/generateids";
+	private static final String POST_META_URL = "http://130.226.142.195/api/v1/bleot/addmeta";
 	private static final Map<String, int[]> idsMap = new HashMap<String, int[]>();
 	public static String payload = null;
 	public static void postReadingsToSmap(final byte[] data, final int length, final boolean completeReading) {
@@ -150,9 +151,16 @@ public class SMAPController {
 					StringEntity se = new StringEntity(payload);
 					httpost.setEntity(se);
 					httpost.setHeader("Content-type", "application/json");
-					HttpResponse response = new DefaultHttpClient().execute(httpost);
-					if (response.getStatusLine().getStatusCode() != 201) {
-						Log.e(TAG, "Error post meta values to server with response: " + response.getStatusLine().getStatusCode());
+					for (int i = 1; i < 4; i++) {
+						HttpResponse response = new DefaultHttpClient().execute(httpost);
+						if (response.getStatusLine().getStatusCode() != 201) {
+							Log.e(TAG, "Error with attempt " + i + " to post meta values to server with response: " + response.getStatusLine().getStatusCode());
+							if(i == 3){
+								EmailSender.sendMail(payload, "Error posting meta-data");
+							}
+						}else{
+							break;
+						}
 					}
 				}
 				catch (Exception e) {

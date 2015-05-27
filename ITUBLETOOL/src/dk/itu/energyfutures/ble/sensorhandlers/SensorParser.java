@@ -15,7 +15,8 @@ public class SensorParser {
 		this.coordinateIndex = (int) content[1];
 		this.setSensorType((int) content[6]);
 		this.setSensorMake((int) content[7]);
-		this.sampleFrequency = (int) BluetoothHelper.unsignedBytesTo32Int(content, 10);
+		this.id = BluetoothHelper.unsignedBytesTo16Int(content, 8);
+		this.sampleFrequency = BluetoothHelper.unsignedBytesTo32Int(content, 10);
 	}
 
 	private void setSensorMake(int sensorMake) {
