@@ -25,6 +25,7 @@ public class Application extends android.app.Application implements DataSinkFlag
 	public static AtomicBoolean connectedToInternet = new AtomicBoolean(false);
 	public static List<DataSinkFlagChangedListner> dataSinkFlagListners;
 	public static Application instance;
+	private static boolean useEnergySavingFeatures;
 	
 	@Override
 	public void onCreate() {
@@ -32,9 +33,10 @@ public class Application extends android.app.Application implements DataSinkFlag
 		applicationContext = getApplicationContext();
 		sharedPreferences = getSharedPreferences(this.getClass().getSimpleName(), MODE_PRIVATE);
 		handler = new Handler(applicationContext.getMainLooper());
-		NetworkInfo activeNetwork =((ConnectivityManager) applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE)).getNetworkInfo(ConnectivityManager.TYPE_WIFI);
+		NetworkInfo activeNetwork =((ConnectivityManager) applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE)).getActiveNetworkInfo();
 		connectedToInternet.set(activeNetwork != null && activeNetwork.isConnected());
 		dataSinkFlagListners = new ArrayList<DataSinkFlagChangedListner>();
+		Application.useEnergySavingFeatures = getPref("useEnergySavingFeatures", true);
 		Application.instance = this;
 	}
 	
@@ -195,5 +197,14 @@ public class Application extends android.app.Application implements DataSinkFlag
 	@Override
 	public void unRegisterDataSinkFlagChangedListner(DataSinkFlagChangedListner listner) {
 		dataSinkFlagListners.remove(listner);
+	}
+
+	public static boolean useEnergySavingFeatures() {
+		return useEnergySavingFeatures;
+	}
+
+	public static void toggleUseEnergySavingFeatures() {
+		Application.useEnergySavingFeatures = !Application.useEnergySavingFeatures;
+		putBoolean("useEnergySavingFeatures", useEnergySavingFeatures);
 	}
 }

@@ -68,6 +68,7 @@ public class LocationListActivity extends Activity implements PacketListListner,
 	    } catch (Exception ex) {
 	        Log.e(TAG,"Error with menu button: " + ex.getMessage());
 	    }
+		
 		// this.setListAdapter(adapter);
 		// this.getListView().setDivider(getResources().getDrawable(R.drawable.divider));
 		// this.getListView().setDividerHeight((int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 2, getResources().getDisplayMetrics()));
@@ -142,6 +143,7 @@ public class LocationListActivity extends Activity implements PacketListListner,
 		// Bind to LocalService
 		Intent intent = new Intent(this, BluetoothLEBackgroundService.class);
 		startService(intent);
+		setProgressBarIndeterminateVisibility(Application.emptyingBuffer);
 		if (!bindService(intent, connection, BIND_AUTO_CREATE)) {
 			Toast.makeText(getApplicationContext(), "COULD NOT BIND TO BLE :0(", Toast.LENGTH_LONG).show();
 			finish();
@@ -217,6 +219,12 @@ public class LocationListActivity extends Activity implements PacketListListner,
 		} else {
 			item1.setTitle("Enable Advance Settings");
 		}
+		MenuItem item5 = menu.findItem(R.id.main_toggle_use_energy_savings);
+		if (Application.useEnergySavingFeatures()) {
+			item5.setTitle("Disable Power-saving Features");
+		} else {
+			item5.setTitle("Enable Power-saving Features");
+		}
 		MenuItem item2 = menu.findItem(R.id.main_toggle_data_sink);
 		if (Application.isDataSink()) {
 			item2.setTitle("Disable Data-Sink");
@@ -281,7 +289,10 @@ public class LocationListActivity extends Activity implements PacketListListner,
 				Application.toggleDataSinkFlag();
 				invalidateOptionsMenu();
 			}
-		} else if (id == R.id.main_toggle_advance_settings) {
+		} else if (id == R.id.main_toggle_use_energy_savings) {
+			Application.toggleUseEnergySavingFeatures();
+			invalidateOptionsMenu();
+		}else if (id == R.id.main_toggle_advance_settings) {
 			Application.toggleAdvanceSettingsFlag();
 			invalidateOptionsMenu();
 		} else if (id == R.id.main_toggle_config_mote) {

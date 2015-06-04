@@ -260,7 +260,7 @@ public class BluetoothLEBackgroundService extends Service implements PacketBroad
 								}
 								moteFound.set(false);
 								btAdapter.stopLeScan(mLeScanCallback);
-								if(!isNexus && ((System.currentTimeMillis() - timeSinceLastPause) >= getMilisecFromSec(10+counter)) && isRunnning.get()){
+								if(((System.currentTimeMillis() - timeSinceLastPause) >= getMilisecFromSec(10+counter)) && isRunnning.get() && Application.useEnergySavingFeatures()){
 									Log.v(myTag, "Sleeping for pause");
 									Thread.sleep(getMilisecFromSec(30));
 									timeSinceLastPause = System.currentTimeMillis();

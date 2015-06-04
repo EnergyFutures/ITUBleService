@@ -177,7 +177,7 @@ public class LocationActivity extends Activity implements PacketListListner, Emp
 								Builder builder = new AlertDialog.Builder(LocationActivity.this);
 								builder.setTitle("Window Control");
 								builder.setMessage("Please wait, connecting...");
-								builder.setPositiveButton("Close", null);
+								builder.setPositiveButton("Close Window", null);
 								builder.setNegativeButton("Open", null);
 								builder.setNeutralButton("Stop", null);
 								builder.setOnDismissListener(new DialogInterface.OnDismissListener() {

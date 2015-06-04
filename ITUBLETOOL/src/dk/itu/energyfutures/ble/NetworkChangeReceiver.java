@@ -14,7 +14,7 @@ public class NetworkChangeReceiver extends BroadcastReceiver {
 		if(connMgr == null){
 			connMgr = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
 		}
-		Application.connectedToInternet.set(connMgr.getNetworkInfo(ConnectivityManager.TYPE_WIFI).isConnected());
+		Application.connectedToInternet.set(connMgr.getActiveNetworkInfo().isConnected());
 		Log.i(TAG,"Receiver called");
 	}
 }

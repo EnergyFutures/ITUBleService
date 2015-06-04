@@ -2,11 +2,11 @@
     xmlns:tools="http://schemas.android.com/tools"
     tools:context="dk.itu.energyfutures.ble.RoomActivity" >
 	<item android:id="@+id/location_refresh"
-          android:title="Refresh"
+          android:title="Clear"
           android:orderInCategory="1"
           android:showAsAction="always|withText"/>
     <item android:id="@+id/location_exit"
-          android:title="Exit"
+          android:title="Exit app"
           android:orderInCategory="2"
           android:showAsAction="ifRoom|withText"/>
 

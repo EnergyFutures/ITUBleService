@@ -94,7 +94,7 @@ public class WindowTask extends AsyncTask<Void, String, Void> {
 			String adr = gatt.getDevice().getAddress();
 			if (status == BluetoothGatt.GATT_SUCCESS) {
 				Log.v(TAG, "Done discovering: " + adr);
-				publishProgress("Ready. Dismiss (ex. push back) when done!");
+				publishProgress("Ready. Dismiss by pressing the back button or anywhere outsite the dialog");
 				BluetoothGattService service = gatt.getService(ITUConstants.BLE_UUID_ITU_ACTUATOR_SERVICE);
 				if (service == null) {
 					Log.e(TAG, "Service is null");

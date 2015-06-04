@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:id="@+id/main_refresh"
-          android:title="Refresh"
+          android:title="Clear"
           android:orderInCategory="1"
           android:showAsAction="always|withText"/>
     <item android:id="@+id/main_exit"
-          android:title="Exit"
+          android:title="Exit app"
           android:orderInCategory="2"
           android:showAsAction="ifRoom|withText"/>
     
@@ -13,16 +13,20 @@
           android:title="Toggle Advance_settings Flag"
           android:orderInCategory="4"
           android:showAsAction="withText|never"/>
+       <item android:id="@+id/main_toggle_use_energy_savings"
+          android:title="Power Saving"
+          android:orderInCategory="5"
+          android:showAsAction="withText|never"/>
      <item android:id="@+id/main_mote_view"
           android:title="Mote View"
           android:orderInCategory="3"
           android:showAsAction="withText|never"/>
     <item android:id="@+id/main_toggle_data_sink"
           android:title="Toggle DataSink Flag"
-          android:orderInCategory="5"
+          android:orderInCategory="6"
           android:showAsAction="withText|never"/>
      <item android:id="@+id/main_toggle_config_mote"
           android:title="Toggle config Flag"
-          android:orderInCategory="6"
+          android:orderInCategory="7"
           android:showAsAction="withText|never"/>
 </menu>
