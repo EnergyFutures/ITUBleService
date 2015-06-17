@@ -11,32 +11,28 @@ import android.content.SharedPreferences;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.Handler;
+import android.preference.PreferenceManager;
 import android.widget.Toast;
 import dk.itu.energyfutures.ble.helpers.ITUConstants;
 
 public class Application extends android.app.Application implements DataSinkFlagChangedNotifier{
 	private static SharedPreferences sharedPreferences;
 	private static Context applicationContext;
-	private static Boolean dataSink;
-	private static Boolean showAdvanceSettings;
 	private static Handler handler;
 	public static boolean emptyingBuffer = false;
-	private static Boolean configNormaleMotes;
 	public static AtomicBoolean connectedToInternet = new AtomicBoolean(false);
 	public static List<DataSinkFlagChangedListner> dataSinkFlagListners;
 	public static Application instance;
-	private static boolean useEnergySavingFeatures;
 	
 	@Override
 	public void onCreate() {
 		super.onCreate();
 		applicationContext = getApplicationContext();
-		sharedPreferences = getSharedPreferences(this.getClass().getSimpleName(), MODE_PRIVATE);
+		sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
 		handler = new Handler(applicationContext.getMainLooper());
 		NetworkInfo activeNetwork =((ConnectivityManager) applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE)).getActiveNetworkInfo();
 		connectedToInternet.set(activeNetwork != null && activeNetwork.isConnected());
 		dataSinkFlagListners = new ArrayList<DataSinkFlagChangedListner>();
-		Application.useEnergySavingFeatures = getPref("useEnergySavingFeatures", true);
 		Application.instance = this;
 	}
 	
@@ -116,25 +112,21 @@ public class Application extends android.app.Application implements DataSinkFlag
 		return sharedPreferences.contains(key);
 	}
 	
-	public static boolean isDataSink(){
-		if(dataSink == null){
-			dataSink = Application.getPref(ITUConstants.DEVICE_IS_A_GATEWAY_KEY,false);
-		}
-		return dataSink;
+	public static boolean isParticipatoryDataSink(){
+		return Application.getPref(ITUConstants.DEVICE_IS_A_PARTICIPATORY_DATA_SINK_KEY,false);
 	}
 	
-	public static boolean toggleDataSinkFlag(){
-		if(dataSink == null){
-			dataSink = Application.getPref(ITUConstants.DEVICE_IS_A_GATEWAY_KEY,false);
-		}
-		Application.putBoolean(ITUConstants.DEVICE_IS_A_GATEWAY_KEY, !dataSink);
-		dataSink = !dataSink;
+	public static void setParticipatoryDataSink(boolean value) {
+		Application.putBoolean(ITUConstants.DEVICE_IS_A_PARTICIPATORY_DATA_SINK_KEY, value);
 		for(DataSinkFlagChangedListner listner : dataSinkFlagListners){
-			listner.onDataSinkFlagChanged(dataSink);
+			listner.onDataSinkFlagChanged(value);
 		}
-		return dataSink;
 	}
-
+	
+	public static boolean isDataSink(){
+		return Application.getPref(ITUConstants.DEVICE_IS_A_DATA_SINK_KEY,false);
+	}
+	
 	public static void showShortToastOnUI(final String msg) {
 		handler.post(new Runnable() {
 			@Override
@@ -154,35 +146,15 @@ public class Application extends android.app.Application implements DataSinkFlag
 	}
 
 	public static Boolean getShowAdvanceSettings() {
-		if(showAdvanceSettings == null){
-			showAdvanceSettings = Application.getPref(ITUConstants.SHOW_ADVANCE_SETTINGS_KEY,false);
-		}
-		return showAdvanceSettings;
+		return Application.getPref(ITUConstants.SHOW_ADVANCE_SETTINGS_KEY,false);
 	}
 
-	public static boolean toggleAdvanceSettingsFlag(){
-		if(showAdvanceSettings == null){
-			showAdvanceSettings = Application.getPref(ITUConstants.SHOW_ADVANCE_SETTINGS_KEY,false);
-		}
-		Application.putBoolean(ITUConstants.SHOW_ADVANCE_SETTINGS_KEY, !showAdvanceSettings);
-		showAdvanceSettings = !showAdvanceSettings;
-		return showAdvanceSettings;
-	}
-	
 	public static Boolean isConfigNormalMotesEnabled() {
-		if(configNormaleMotes == null){
-			configNormaleMotes = Application.getPref(ITUConstants.ENABLE_CONFIG_OF_NORMAL_MOTES,false);
-		}
-		return configNormaleMotes;
+		return Application.getPref(ITUConstants.ENABLE_CONFIG_OF_NORMAL_MOTES,false);
 	}
 
-	public static boolean toggleIsConfigNormalMotesEnabledFlag(){
-		if(configNormaleMotes == null){
-			configNormaleMotes = Application.getPref(ITUConstants.ENABLE_CONFIG_OF_NORMAL_MOTES,false);
-		}
-		Application.putBoolean(ITUConstants.ENABLE_CONFIG_OF_NORMAL_MOTES, !configNormaleMotes);
-		configNormaleMotes = !configNormaleMotes;
-		return configNormaleMotes;
+	public static void setIsConfigNormalMotesEnabledFlag(boolean value){
+		Application.putBoolean(ITUConstants.ENABLE_CONFIG_OF_NORMAL_MOTES, value);
 	}
 	
 	public static boolean isConnectedToInternet(){
@@ -200,11 +172,6 @@ public class Application extends android.app.Application implements DataSinkFlag
 	}
 
 	public static boolean useEnergySavingFeatures() {
-		return useEnergySavingFeatures;
-	}
-
-	public static void toggleUseEnergySavingFeatures() {
-		Application.useEnergySavingFeatures = !Application.useEnergySavingFeatures;
-		putBoolean("useEnergySavingFeatures", useEnergySavingFeatures);
+		return Application.getPref(ITUConstants.USE_ENERGY_SAVINGS_FEATURES, true);
 	}
 }

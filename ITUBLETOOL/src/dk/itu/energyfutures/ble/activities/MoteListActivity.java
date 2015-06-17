@@ -40,6 +40,7 @@ public class MoteListActivity extends Activity implements PacketListListner, Emp
 	private MyAdapter adapter = new MyAdapter(packets);
 	protected BluetoothLEBackgroundService service;
 	private boolean bound;
+	private boolean settingsShowed;
 	private static final int DEFAULT_COLOR = Color.argb(135, 215, 120, 249);
 	private static final int CONFIG_COLOR = Color.argb(135, 215, 120, 120);
 	private static final int BUFFER_FULL_COLOR = Color.argb(135, 120, 120, 120);
@@ -92,6 +93,10 @@ public class MoteListActivity extends Activity implements PacketListListner, Emp
 	protected void onResume() {
 		super.onResume();
 		refreshList();
+		if(settingsShowed){
+			settingsShowed = false;
+			invalidateOptionsMenu();
+		}
 		setProgressBarIndeterminateVisibility(Application.emptyingBuffer);
 	}
 
@@ -160,7 +165,7 @@ public class MoteListActivity extends Activity implements PacketListListner, Emp
 				TextView locationName = (TextView) v.findViewById(R.id.location);
 				locationName.setText("Location: " + packet.getLocation());
 				boolean isNewBorn = "NEWBORN".equals(packet.getDeviceName()) && "YYY".equals(packet.getLocation());
-				boolean isConnectable = packet.isBufferNeedsCleaning() && !"NEWBORN".equals(packet.getDeviceName()) && Application.isConfigNormalMotesEnabled();
+				boolean isConnectable = !"NEWBORN".equals(packet.getDeviceName()) && Application.isConfigNormalMotesEnabled();
 				if(isNewBorn || isConnectable){
 					if(isNewBorn){
 						v.setBackgroundColor(CONFIG_COLOR);
@@ -255,7 +260,11 @@ public class MoteListActivity extends Activity implements PacketListListner, Emp
 	@Override
 	public boolean onCreateOptionsMenu(Menu menu) {
 		// Inflate the menu; this adds items to the action bar if it is present.
-		getMenuInflater().inflate(R.menu.mote, menu);
+		getMenuInflater().inflate(R.menu.main, menu);
+		
+		MenuItem item1 = menu.findItem(R.id.main_mote_view);
+		item1.setVisible(false);
+	
 		return true;
 	}
 
@@ -266,7 +275,7 @@ public class MoteListActivity extends Activity implements PacketListListner, Emp
 		// as you specify a parent activity in AndroidManifest.xml.
 		int id = item.getItemId();
 		switch (id) {
-		case R.id.mote_refresh:
+		case R.id.main_refresh:
 			if (bound) {
 				service.getPackets().clear();
 				service.getNewBornPackets().clear();
@@ -275,12 +284,17 @@ public class MoteListActivity extends Activity implements PacketListListner, Emp
 				refreshList();
 			}
 			return true;
-		case R.id.mote_exit:
+		case R.id.main_exit:
 			Intent intent = new Intent(getApplicationContext(), LocationListActivity.class);
 			intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
 			intent.putExtra("EXIT", true);
 			startActivity(intent);
 			finish();
+			return true;
+		case R.id.show_settings:
+			settingsShowed = true;
+			Intent intent3 = new Intent(MoteListActivity.this, SettingsActivity.class);
+			startActivity(intent3);
 			return true;
 		default:
 			return super.onOptionsItemSelected(item);

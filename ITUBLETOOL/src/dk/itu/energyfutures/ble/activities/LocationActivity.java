@@ -103,6 +103,10 @@ public class LocationActivity extends Activity implements PacketListListner, Emp
 	protected void onResume() {
 		super.onResume();
 		refreshList();
+		if(settingsShowed){
+			settingsShowed = false;
+			invalidateOptionsMenu();
+		}
 		setProgressBarIndeterminateVisibility(Application.emptyingBuffer);
 	}
 
@@ -126,6 +130,7 @@ public class LocationActivity extends Activity implements PacketListListner, Emp
 			System.out.println();
 		}
 	};
+	private boolean settingsShowed;
 
 	private void refreshList() {
 		if (bound) {
@@ -289,7 +294,11 @@ public class LocationActivity extends Activity implements PacketListListner, Emp
 	@Override
 	public boolean onCreateOptionsMenu(Menu menu) {
 		// Inflate the menu; this adds items to the action bar if it is present.
-		getMenuInflater().inflate(R.menu.location, menu);
+		getMenuInflater().inflate(R.menu.main, menu);
+		
+		MenuItem item1 = menu.findItem(R.id.main_mote_view);
+		item1.setVisible(Application.getShowAdvanceSettings());
+	
 		return true;
 	}
 
@@ -300,16 +309,25 @@ public class LocationActivity extends Activity implements PacketListListner, Emp
 		// as you specify a parent activity in AndroidManifest.xml.
 		int id = item.getItemId();
 		switch (id) {
-		case R.id.location_refresh:
+		case R.id.main_refresh:
 			packets.clear();
 			gridAdapter.notifyDataSetChanged();
 			return true;
-		case R.id.location_exit:
-			Intent intent = new Intent(getApplicationContext(), LocationListActivity.class);
-			intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
-			intent.putExtra("EXIT", true);
-			startActivity(intent);
+		case R.id.main_exit:
+			Intent intent1 = new Intent(getApplicationContext(), LocationListActivity.class);
+			intent1.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+			intent1.putExtra("EXIT", true);
+			startActivity(intent1);
 			finish();
+			return true;
+		case R.id.main_mote_view:
+			Intent intent2 = new Intent(LocationActivity.this, MoteListActivity.class);
+			startActivity(intent2);
+			return true;
+		case R.id.show_settings:
+			this.settingsShowed = true;
+			Intent intent3 = new Intent(LocationActivity.this, SettingsActivity.class);
+			startActivity(intent3);
 			return true;
 		default:
 			return super.onOptionsItemSelected(item);

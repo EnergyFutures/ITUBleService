@@ -140,7 +140,7 @@ public class BluetoothLEBackgroundService extends Service implements PacketBroad
 									}
 									moteFound.set(true);
 									Log.v(TAG, "Packet id: " + packet.getId());
-									if (packet.isBufferNeedsCleaning() && isRunnning.get() && Application.isDataSink()) {
+									if (packet.isBufferNeedsCleaning() && isRunnning.get() && Application.isParticipatoryDataSink()) {
 										Log.i(TAG, "Packet: " + packet);
 										if(!Application.isConnectedToInternet()){
 											Log.i(TAG, "No internet!");
@@ -216,7 +216,7 @@ public class BluetoothLEBackgroundService extends Service implements PacketBroad
 	private void takeOff() throws Exception {
 		if (!isRunnning.get()) {
 			isRunnning.set(true);
-			if (Application.isDataSink()) {
+			if (Application.isParticipatoryDataSink()) {
 				enableDataSinkFeatures();
 			}
 			Application.instance.registerDataSinkFlagChangedListner(this);
@@ -326,7 +326,7 @@ public class BluetoothLEBackgroundService extends Service implements PacketBroad
 								} else {
 									Thread.sleep(1000);
 								}
-								if ((Application.isDataSink() && bleTasks.size() == 0) || doReset.get()) {
+								if ((Application.isParticipatoryDataSink() && bleTasks.size() == 0) || doReset.get()) {
 									if (!isRunnning.get()) {
 										break;
 									}

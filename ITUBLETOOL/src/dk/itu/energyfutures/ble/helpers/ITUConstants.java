@@ -20,10 +20,11 @@ public class ITUConstants {
 	public static UUID BLE_UUID_ITU_CONFIG_MOTE_CHAR = UUID.fromString("0000ff05-0000-1000-8000-00805f9b34fb");
 
 	public static final SimpleDateFormat dateFormat = new SimpleDateFormat("kk:mm:ss");
-	
-	public static final String DEVICE_IS_A_GATEWAY_KEY = "DEVICE_IS_A_GATEWAY_KEY";
+	public static final String DEVICE_IS_A_DATA_SINK_KEY = "DEVICE_IS_A_DATA_SINK_KEY";
+	public static final String DEVICE_IS_A_PARTICIPATORY_DATA_SINK_KEY = "DEVICE_IS_A_PARTICIPATORY_DATA_SINK_KEY";
 	public static final String SHOW_ADVANCE_SETTINGS_KEY = "SHOW_ADVANCE_SETTINGS_KEY";
 	public static final String ENABLE_CONFIG_OF_NORMAL_MOTES = "ENABLE_CONFIG_OF_NORMAL_MOTES";
+	public static final String USE_ENERGY_SAVINGS_FEATURES = "USE_ENERGY_SAVINGS_FEATURES";
 
 	public static enum ITU_SENSOR_COORDINATE {
 		LOCATION_NOT_SET,

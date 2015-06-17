@@ -163,6 +163,7 @@ public class LocationListActivity extends Activity implements PacketListListner,
 	protected void onResume() {
 		super.onResume();
 		refreshRooms();
+		invalidateOptionsMenu();
 		setProgressBarIndeterminateVisibility(Application.emptyingBuffer);
 	}
 
@@ -213,35 +214,10 @@ public class LocationListActivity extends Activity implements PacketListListner,
 	public boolean onCreateOptionsMenu(Menu menu) {
 		// Inflate the menu; this adds items to the action bar if it is present.
 		getMenuInflater().inflate(R.menu.main, menu);
-		MenuItem item1 = menu.findItem(R.id.main_toggle_advance_settings);
-		if (Application.getShowAdvanceSettings()) {
-			item1.setTitle("Disable Advance Settings");
-		} else {
-			item1.setTitle("Enable Advance Settings");
-		}
-		MenuItem item5 = menu.findItem(R.id.main_toggle_use_energy_savings);
-		if (Application.useEnergySavingFeatures()) {
-			item5.setTitle("Disable Power-saving Features");
-		} else {
-			item5.setTitle("Enable Power-saving Features");
-		}
-		MenuItem item2 = menu.findItem(R.id.main_toggle_data_sink);
-		if (Application.isDataSink()) {
-			item2.setTitle("Disable Data-Sink");
-		} else {
-			item2.setTitle("Enable Data-Sink");
-		}
-		item2.setVisible(Application.getShowAdvanceSettings());
-		MenuItem item3 = menu.findItem(R.id.main_mote_view);
-		item3.setVisible(Application.getShowAdvanceSettings());
-
-		MenuItem item4 = menu.findItem(R.id.main_toggle_config_mote);
-		if (Application.isConfigNormalMotesEnabled()) {
-			item4.setTitle("Disable Mote-Config");
-		} else {
-			item4.setTitle("Enable Mote-Config");
-		}
-		item4.setVisible(Application.getShowAdvanceSettings());
+		
+		MenuItem item1 = menu.findItem(R.id.main_mote_view);
+		item1.setVisible(Application.getShowAdvanceSettings());
+	
 		return true;
 	}
 
@@ -265,7 +241,10 @@ public class LocationListActivity extends Activity implements PacketListListner,
 		} else if (id == R.id.main_mote_view) {
 			Intent intent = new Intent(LocationListActivity.this, MoteListActivity.class);
 			startActivity(intent);
-		} else if (id == R.id.main_toggle_data_sink) {
+		} else if (id == R.id.show_settings) {
+			Intent intent = new Intent(LocationListActivity.this, SettingsActivity.class);
+			startActivity(intent);
+		}/*else if (id == R.id.main_toggle_data_sink) {
 			if (!Application.isDataSink()) {
 				AlertDialog.Builder builder = new AlertDialog.Builder(LocationListActivity.this);
 				DialogInterface.OnClickListener dialogClickListener = new DialogInterface.OnClickListener() {
@@ -289,12 +268,6 @@ public class LocationListActivity extends Activity implements PacketListListner,
 				Application.toggleDataSinkFlag();
 				invalidateOptionsMenu();
 			}
-		} else if (id == R.id.main_toggle_use_energy_savings) {
-			Application.toggleUseEnergySavingFeatures();
-			invalidateOptionsMenu();
-		}else if (id == R.id.main_toggle_advance_settings) {
-			Application.toggleAdvanceSettingsFlag();
-			invalidateOptionsMenu();
 		} else if (id == R.id.main_toggle_config_mote) {
 			if (!Application.isConfigNormalMotesEnabled()) {
 				final EditText et = new EditText(LocationListActivity.this);
@@ -324,7 +297,7 @@ public class LocationListActivity extends Activity implements PacketListListner,
 				Application.toggleIsConfigNormalMotesEnabledFlag();
 				invalidateOptionsMenu();
 			}
-		}
+		}*/
 		return super.onOptionsItemSelected(item);
 	}
 

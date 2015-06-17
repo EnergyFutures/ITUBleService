@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android" >
+   
+    <dk.itu.energyfutures.ble.guiparts.ParticipatoryPreference
+        android:key="DEVICE_IS_A_PARTICIPATORY_DATA_SINK_KEY"
+        android:title="Data collection"
+        android:summary="Collect data from nearby sensors" />
+    
+     <CheckBoxPreference
+        android:key="USE_ENERGY_SAVINGS_FEATURES"
+        android:title="Energy savings"
+        android:summary="Duty cycle BT to save energy"
+        android:defaultValue="true" />
+    
+    
+	<PreferenceCategory android:title="Administrators only">
+	    <CheckBoxPreference
+	        android:key="SHOW_ADVANCE_SETTINGS_KEY"
+	        android:title="Admin settings"
+	        android:summary="Show mote-view in menu"
+	        android:defaultValue="false" />
+	    <CheckBoxPreference
+	        android:key="DEVICE_IS_A_DATA_SINK_KEY"
+	        android:title="Stationary Data Sink"
+	        android:summary="Dedicated Data Sink"
+	        android:defaultValue="false" />
+	    <dk.itu.energyfutures.ble.guiparts.ConfigMotesPreference
+	        android:key="ENABLE_CONFIG_OF_NORMAL_MOTES"
+	        android:title="Configure motes"
+	        android:summary="Configure deployed motes" />
+    </PreferenceCategory>
+   
+    
+</PreferenceScreen>

@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="dk.itu.energyfutures.ble"
-    android:versionCode="5"
-    android:versionName="2" >
+    android:versionCode="6"
+    android:versionName="2.1" >
 
     <uses-sdk
         android:minSdkVersion="18"
@@ -17,30 +17,41 @@
     <uses-feature
         android:name="android.hardware.bluetooth_le"
         android:required="true" />
-    
 
     <application
+        android:name=".Application"
         android:allowBackup="false"
         android:icon="@drawable/ic_launcher"
         android:label="BLEoT"
-        android:theme="@android:style/Theme.Holo.Light" 
-        android:name="dk.itu.energyfutures.ble.Application" android:logo="@drawable/ic_launcher">
-        <activity android:name="dk.itu.energyfutures.ble.activities.LocationListActivity" >
+        android:logo="@drawable/ic_launcher"
+        android:theme="@android:style/Theme.Holo.Light" >
+        <activity android:name=".activities.LocationListActivity" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity android:parentActivityName="dk.itu.energyfutures.ble.activities.LocationListActivity" android:name="dk.itu.energyfutures.ble.activities.LocationActivity" />
-        <activity android:parentActivityName="dk.itu.energyfutures.ble.activities.LocationListActivity" android:name="dk.itu.energyfutures.ble.activities.MoteListActivity" />
-        <activity android:parentActivityName="dk.itu.energyfutures.ble.activities.MoteListActivity" android:name="dk.itu.energyfutures.ble.activities.DeviceConfigActivity" />
+        <activity
+            android:name=".activities.LocationActivity"
+            android:parentActivityName=".activities.LocationListActivity" />
+        <activity
+            android:name=".activities.MoteListActivity"
+            android:parentActivityName=".activities.LocationListActivity" />
+        <activity
+            android:name=".activities.DeviceConfigActivity"
+            android:parentActivityName=".activities.MoteListActivity" />
 
         <service
-            android:name="dk.itu.energyfutures.ble.BluetoothLEBackgroundService"
+            android:name=".BluetoothLEBackgroundService"
             android:enabled="true"
             android:exported="false"
-            android:singleUser="true"
-            />
+            android:singleUser="true" />
+
+        <activity
+            android:name="dk.itu.energyfutures.ble.activities.SettingsActivity"
+            android:label="@string/title_activity_settings" >
+        </activity>
     </application>
 
 </manifest>
