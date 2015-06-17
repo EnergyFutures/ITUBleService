@@ -7,14 +7,11 @@ import java.util.Set;
 import java.util.TreeSet;
 
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.content.ComponentName;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.os.Bundle;
 import android.os.IBinder;
-import android.text.InputType;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.Menu;
@@ -24,7 +21,6 @@ import android.view.ViewConfiguration;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.widget.BaseAdapter;
-import android.widget.EditText;
 import android.widget.GridView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -244,60 +240,7 @@ public class LocationListActivity extends Activity implements PacketListListner,
 		} else if (id == R.id.show_settings) {
 			Intent intent = new Intent(LocationListActivity.this, SettingsActivity.class);
 			startActivity(intent);
-		}/*else if (id == R.id.main_toggle_data_sink) {
-			if (!Application.isDataSink()) {
-				AlertDialog.Builder builder = new AlertDialog.Builder(LocationListActivity.this);
-				DialogInterface.OnClickListener dialogClickListener = new DialogInterface.OnClickListener() {
-					@Override
-					public void onClick(DialogInterface dialog, int which) {
-						switch (which) {
-						case DialogInterface.BUTTON_POSITIVE:
-							Application.toggleDataSinkFlag();
-							invalidateOptionsMenu();
-							break;
-
-						case DialogInterface.BUTTON_NEGATIVE:
-							// No button clicked
-							break;
-						}
-					}
-				};
-				builder.setMessage("This allows the app to collect data and use your internet.\nRandom BT-chip reset will occur.\nWe appreciate any help :0)\nAre you sure?")
-						.setPositiveButton("Yes", dialogClickListener).setNegativeButton("No", dialogClickListener).show();
-			} else {
-				Application.toggleDataSinkFlag();
-				invalidateOptionsMenu();
-			}
-		} else if (id == R.id.main_toggle_config_mote) {
-			if (!Application.isConfigNormalMotesEnabled()) {
-				final EditText et = new EditText(LocationListActivity.this);
-				et.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
-				et.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-				AlertDialog.Builder builder = new AlertDialog.Builder(LocationListActivity.this);
-				DialogInterface.OnClickListener dialogClickListener = new DialogInterface.OnClickListener() {
-					@Override
-					public void onClick(DialogInterface dialog, int which) {
-						switch (which) {
-						case DialogInterface.BUTTON_POSITIVE:
-							if (et.getText().toString().equals("future")) {
-								invalidateOptionsMenu();
-								Application.toggleIsConfigNormalMotesEnabledFlag();
-							}
-							break;
-
-						case DialogInterface.BUTTON_NEGATIVE:
-							// No button clicked
-							break;
-						}
-					}
-				};
-				builder.setMessage("Changing this allows you to override existing running motes .\nType password").setPositiveButton("Yes", dialogClickListener)
-						.setNegativeButton("No", dialogClickListener).setView(et).show();
-			} else {
-				Application.toggleIsConfigNormalMotesEnabledFlag();
-				invalidateOptionsMenu();
-			}
-		}*/
+		}
 		return super.onOptionsItemSelected(item);
 	}
 

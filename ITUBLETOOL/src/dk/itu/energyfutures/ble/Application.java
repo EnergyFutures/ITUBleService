@@ -174,4 +174,8 @@ public class Application extends android.app.Application implements DataSinkFlag
 	public static boolean useEnergySavingFeatures() {
 		return Application.getPref(ITUConstants.USE_ENERGY_SAVINGS_FEATURES, true);
 	}
+	
+	public static boolean disableBTOnExit(){
+		return Application.getPref(ITUConstants.DISABLE_BT_ON_EXIT, false);
+	}
 }

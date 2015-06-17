@@ -25,6 +25,8 @@ public class ITUConstants {
 	public static final String SHOW_ADVANCE_SETTINGS_KEY = "SHOW_ADVANCE_SETTINGS_KEY";
 	public static final String ENABLE_CONFIG_OF_NORMAL_MOTES = "ENABLE_CONFIG_OF_NORMAL_MOTES";
 	public static final String USE_ENERGY_SAVINGS_FEATURES = "USE_ENERGY_SAVINGS_FEATURES";
+	public static final String DISABLE_BT_ON_EXIT = "DISABLE_BT_ON_EXIT";
+	
 
 	public static enum ITU_SENSOR_COORDINATE {
 		LOCATION_NOT_SET,

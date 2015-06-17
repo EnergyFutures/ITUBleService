@@ -403,6 +403,9 @@ public class BluetoothLEBackgroundService extends Service implements PacketBroad
 			catch (InterruptedException e) {}
 		}
 		Application.emptyingBuffer = false;
+		if(Application.disableBTOnExit()){
+			btAdapter.disable();
+		}
 	}
 
 	private void disableDataSinkFeatures() {

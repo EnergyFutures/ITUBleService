@@ -11,6 +11,12 @@
         android:title="Energy savings"
         android:summary="Duty cycle BT to save energy"
         android:defaultValue="true" />
+     
+     <CheckBoxPreference
+        android:key="DISABLE_BT_ON_EXIT"
+        android:title="Disable BT"
+        android:summary="Disable BT on exit"
+        android:defaultValue="false" />
     
     
 	<PreferenceCategory android:title="Administrators only">
